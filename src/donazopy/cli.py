@@ -80,9 +80,19 @@ class Donazopy:
     @staticmethod
     def _require_domain(target: Target) -> str:
         if target.domain is None or target.domain == "*":
-            msg = f"target {target.raw!r} must name a single domain for this operation"
+            msg = (
+                f"target {target.raw!r} must name a single domain for this operation; "
+                "use 'donazopy domains <provider>' to list a provider's domains"
+            )
             raise TargetError(msg)
         return target.domain
+
+    def _provider_key(self, provider: str) -> str:
+        """Resolve a provider key from a bare key (``ionos``) or a target (``ionos/*``)."""
+        if provider in _operational_keys():
+            return provider
+        key, _ = self._resolve_target(provider)
+        return key
 
     def _provider_info(self, key: str, dotenv_path: str | None) -> dict[str, object]:
         spec = get_provider(key)
@@ -115,6 +125,14 @@ class Donazopy:
     def providers(self) -> list[str]:
         """List the operational provider keys."""
         return list(_operational_keys())
+
+    def domains(self, provider: str, dotenv_path: str | None = None) -> list[str]:
+        """List the domains/zones managed by a provider.
+
+        ``provider`` is a provider key (e.g. ``ionos``) or a target like ``ionos/*``.
+        """
+        key = self._provider_key(provider)
+        return self._dns_provider(key, dotenv_path).list_zones()
 
     def status(self, target: str | None = None, dotenv_path: str | None = None) -> dict[str, object]:
         """Show provider metadata and credential status.
@@ -212,10 +230,20 @@ class Donazopy:
         *new_nameservers: str,
         dotenv_path: str | None = None,
     ) -> object:
-        """Read nameservers for a domain, or assign them when values are given."""
+        """Read nameservers for a domain, or assign them when values are given.
+
+        ``target`` with a wildcard domain (``provider/*``) reads nameservers for every
+        domain the provider manages and returns a ``{domain: [nameserver, ...]}`` map.
+        Assigning nameservers always requires a single concrete domain.
+        """
         key, parsed = self._resolve_target(target)
-        domain = self._require_domain(parsed)
         provider = self._registrar_provider(key, dotenv_path)
+        if parsed.domain in (None, "*"):
+            if new_nameservers:
+                self._require_domain(parsed)  # raise the standard "single domain" error
+            dns_provider = self._dns_provider(key, dotenv_path)
+            return {domain: list(provider.read_nameservers(domain)) for domain in dns_provider.list_zones()}
+        domain = self._require_domain(parsed)
         if not new_nameservers:
             return list(provider.read_nameservers(domain))
         return provider.assign_nameservers(domain, list(new_nameservers))

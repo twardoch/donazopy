@@ -60,11 +60,28 @@ behind them. No arguments. Returns a list of strings.
 
 ```text
 $ donazopy providers
-['cloudflare']
+['cloudflare', 'godaddy', 'ionos', 'joker']
 ```
 
 Providers documented in `spec/` but not yet implemented are deliberately *not*
 listed here. See [Providers](providers.md) for the full table.
+
+---
+
+## `domains`
+
+```bash
+donazopy domains PROVIDER [--dotenv-path=PATH]
+```
+
+Lists the domains/zones a provider manages. `PROVIDER` is a provider key
+(`ionos`) or a target with a wildcard domain (`ionos/*`). Returns a list of
+domain names.
+
+```text
+$ donazopy domains ionos
+['example.com', 'example.net']
+```
 
 ---
 
@@ -215,11 +232,19 @@ $ donazopy nameservers cloudflare/example.com --dotenv-path=.env
 ['ada.ns.cloudflare.com', 'bob.ns.cloudflare.com']
 ```
 
-!!! danger "Reassignment is not supported"
-    Passing `NS1 NS2 ...` to *set* registrar-level nameservers is **not**
-    supported for Cloudflare and is out of scope today: changing a domain's
-    delegation is a registrar/parent-zone operation, not a hosted-zone one. See
-    [Providers → Nameservers and delegation](providers.md#nameservers-and-delegation).
+A wildcard domain (`provider/*`) reads nameservers for every domain the provider
+manages and returns a `{domain: [nameserver, ...]}` map:
+
+```text
+$ donazopy nameservers godaddy/* --dotenv-path=.env
+{'example.com': ['ns01.domaincontrol.com', 'ns02.domaincontrol.com'], 'example.net': [...]}
+```
+
+Passing `NS1 NS2 ...` *sets* registrar-level nameservers for the target domain.
+This is a real registrar delegation change on registrar-capable providers
+(GoDaddy, Joker); on DNS-only delegation surfaces (Cloudflare, IONOS) it raises a
+clear "not supported" error. See
+[Providers → Nameservers and delegation](providers.md#nameservers-and-delegation).
 
 ---
 

@@ -176,6 +176,28 @@ def test_nameservers_when_values_given_then_assigns(cli: Donazopy, registrar_pro
     assert registrar_provider.assigned == [("example.com", ["a.iana-servers.net", "b.iana-servers.net"])]
 
 
+def test_nameservers_when_wildcard_domain_then_reads_all(cli: Donazopy) -> None:
+    assert cli.nameservers("cloudflare/*") == {"example.com": ["ns1.example.com", "ns2.example.com"]}
+
+
+def test_nameservers_when_wildcard_and_values_then_raises(cli: Donazopy) -> None:
+    with pytest.raises(TargetError, match="single domain"):
+        cli.nameservers("cloudflare/*", "a.iana-servers.net")
+
+
+def test_domains_when_provider_key_then_lists_zones(cli: Donazopy) -> None:
+    assert cli.domains("cloudflare") == ["example.com"]
+
+
+def test_domains_when_wildcard_target_then_lists_zones(cli: Donazopy) -> None:
+    assert cli.domains("cloudflare/*") == ["example.com"]
+
+
+def test_require_domain_error_when_wildcard_then_points_at_domains_command(cli: Donazopy) -> None:
+    with pytest.raises(TargetError, match="donazopy domains"):
+        cli.records("cloudflare/*")
+
+
 def test_diff_when_two_files_then_returns_summary(tmp_path: Path) -> None:
     before = tmp_path / "before.zone"
     after = tmp_path / "after.zone"

@@ -107,6 +107,7 @@ uv run donazopy diff cloudflare/example.com example.com.zone
 | --- | --- |
 | `donazopy version` | Print installed version |
 | `donazopy providers` | List operational provider keys |
+| `donazopy domains PROVIDER [--dotenv-path=PATH]` | List the domains/zones a provider manages (`PROVIDER` may be `ionos` or `ionos/*`) |
 | `donazopy status [TARGET] [--dotenv-path=PATH]` | Provider metadata + credential status |
 | `donazopy records TARGET [--dotenv-path=PATH]` | List DNS records (target may include record filters) |
 | `donazopy export TARGET [--output=PATH] [--overwrite] [--skip-ns] [--skip-types=A,AAAA,...] [--dotenv-path=PATH]` | Export zone as BIND text |
