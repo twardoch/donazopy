@@ -558,6 +558,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#operational-provider-godaddy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operational provider: GoDaddy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operational-provider-ionos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operational provider: IONOS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operational-provider-jokercom-dmapi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operational provider: Joker.com (DMAPI)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#documented-planned-providers" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -833,6 +866,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#operational-provider-godaddy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operational provider: GoDaddy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operational-provider-ionos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operational provider: IONOS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#operational-provider-jokercom-dmapi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Operational provider: Joker.com (DMAPI)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#documented-planned-providers" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -874,7 +940,8 @@
 <ul>
 <li><strong>Operational providers</strong> — they have a real, tested adapter and are exposed
   by <code>donazopy providers</code>. You can run <code>records</code>, <code>export</code>, <code>import-zone</code>,
-  <code>nameservers</code>, etc. against them. Today that is <strong>only Cloudflare</strong>.</li>
+  <code>nameservers</code>, etc. against them. Today those are <strong>Cloudflare</strong>, <strong>GoDaddy</strong>,
+  <strong>IONOS</strong>, and <strong>Joker.com (DMAPI)</strong>.</li>
 <li><strong>Documented providers</strong> — researched in <a href="../architecture/#specification-chapters"><code>spec/</code></a>
   and tracked in <code>TODO.md</code>, with a <code>ProviderSpec</code> describing their metadata and
   required credentials, but <strong>no adapter yet</strong>. They are deliberately <em>not</em>
@@ -972,10 +1039,13 @@ in <code>base.py</code>; the registry is <code>registry.py</code>.</p>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">export_zone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">import_zone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">zone_text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">proxied</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span> <span class="o">...</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">list_records</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]:</span> <span class="o">...</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="k">class</span><span class="w"> </span><span class="nc">RegistrarProvider</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">spec</span><span class="p">:</span> <span class="n">ProviderSpec</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">read_nameservers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span> <span class="o">...</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">delete_all_records</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span> <span class="o">...</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">list_zones</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span> <span class="o">...</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="k">class</span><span class="w"> </span><span class="nc">RegistrarProvider</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">spec</span><span class="p">:</span> <span class="n">ProviderSpec</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">read_nameservers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span> <span class="o">...</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">assign_nameservers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">domain</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">nameservers</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span> <span class="o">...</span>
 </span></code></pre></div>
 <p>A provider can implement either or both. Unsupported operations should fail
 clearly, not silently no-op.</p>
@@ -1071,6 +1141,155 @@ registrar-level delegation. Reassigning a domain's authoritative nameservers is 
 registration), not a hosted-zone one — see <a href="../architecture/#specification-chapters">spec chapter 09</a>.
 That workflow is out of scope today; it will only be exposed when there is a real
 registrar adapter with mocked/live tests behind it.</p>
+<h2 id="operational-provider-godaddy">Operational provider: GoDaddy<a class="headerlink" href="#operational-provider-godaddy" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Key</td>
+<td><code>godaddy</code></td>
+</tr>
+<tr>
+<td>Category</td>
+<td><code>dns_and_registrar</code></td>
+</tr>
+<tr>
+<td>API base</td>
+<td><code>https://api.godaddy.com/v1</code></td>
+</tr>
+<tr>
+<td>Docs</td>
+<td><a href="https://developer.godaddy.com/doc/endpoint/domains">https://developer.godaddy.com/doc/endpoint/domains</a></td>
+</tr>
+<tr>
+<td>Credentials</td>
+<td><code>GODADDY_API_KEY</code>, <code>GODADDY_API_SECRET</code></td>
+</tr>
+<tr>
+<td>Auth</td>
+<td><code>Authorization: sso-key {key}:{secret}</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>records</code> / <code>export</code> → <code>GET /v1/domains/{domain}/records</code>; records are relative
+  (<code>@</code> for the apex). GoDaddy keeps <code>MX</code>/<code>SRV</code> priority (and <code>SRV</code> weight/port)
+  in dedicated fields, which the adapter folds back into BIND rdata. GoDaddy's
+  <code>SOA</code> carries only the primary nameserver, so a synthetic SOA is generated on
+  export.</li>
+<li><code>import-zone</code> → <code>PATCH /v1/domains/{domain}/records</code> (appends the parsed
+  records; the GoDaddy-managed <code>SOA</code> is never re-sent).</li>
+<li><code>copy --replace</code> / <code>delete_all_records</code> → <code>DELETE /v1/domains/{domain}/records/{type}/{name}</code>
+  per type+name group, preserving the apex <code>NS</code> and <code>SOA</code>.</li>
+<li><code>nameservers</code> (read) → the <code>nameServers</code> field on <code>GET /v1/domains/{domain}</code>.</li>
+<li><code>nameservers NS1 NS2 ...</code> (assign) → <code>PUT /v1/domains/{domain}</code> with
+  <code>{"nameServers": [...]}</code> — a real registrar delegation change.</li>
+</ul>
+<p>GoDaddy's production API restricts some domain endpoints by account size/plan;
+those limits surface as <code>ProviderAPIError</code> with the GoDaddy message.</p>
+<h2 id="operational-provider-ionos">Operational provider: IONOS<a class="headerlink" href="#operational-provider-ionos" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Key</td>
+<td><code>ionos</code></td>
+</tr>
+<tr>
+<td>Category</td>
+<td><code>dns_and_registrar</code></td>
+</tr>
+<tr>
+<td>API base</td>
+<td><code>https://api.hosting.ionos.com/dns/v1</code></td>
+</tr>
+<tr>
+<td>Docs</td>
+<td><a href="https://developer.hosting.ionos.com/docs/dns">https://developer.hosting.ionos.com/docs/dns</a></td>
+</tr>
+<tr>
+<td>Credentials</td>
+<td><code>IONOS_API_PUBLIC</code>, <code>IONOS_API_SECRET</code></td>
+</tr>
+<tr>
+<td>Auth</td>
+<td><code>X-API-Key: {public}.{secret}</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>list_zones</code> → <code>GET /zones</code>; the zone is resolved by name, then
+  <code>GET /zones/{id}</code> returns its records (<code>disabled</code> records are dropped on
+  export). IONOS includes the real <code>SOA</code> and <code>NS</code> records, so the BIND export is
+  a complete standalone zone.</li>
+<li><code>import-zone</code> → <code>POST /zones/{id}/records</code> with the parsed records; the
+  IONOS-managed <code>SOA</code> is never re-sent.</li>
+<li><code>delete_all_records</code> → <code>DELETE /zones/{id}/records/{recordId}</code> for every
+  non-<code>SOA</code> record.</li>
+<li><code>nameservers</code> (read) → the apex <code>NS</code> records in the zone.</li>
+<li><code>nameservers NS1 NS2 ...</code> (assign) → <strong>not supported</strong>: the IONOS DNS API
+  cannot change registrar delegation. Update it in the IONOS domain management
+  area / domains API.</li>
+</ul>
+<h2 id="operational-provider-jokercom-dmapi">Operational provider: Joker.com (DMAPI)<a class="headerlink" href="#operational-provider-jokercom-dmapi" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Key</td>
+<td><code>joker</code></td>
+</tr>
+<tr>
+<td>Category</td>
+<td><code>dns_and_registrar</code></td>
+</tr>
+<tr>
+<td>API base</td>
+<td><code>https://dmapi.joker.com/request/</code></td>
+</tr>
+<tr>
+<td>Docs</td>
+<td><a href="https://dmapi.joker.com/">https://dmapi.joker.com/</a></td>
+</tr>
+<tr>
+<td>Credentials</td>
+<td><code>JOKER_API_KEY</code></td>
+</tr>
+<tr>
+<td>Auth</td>
+<td><code>login</code> with <code>api-key</code> → <code>Auth-Sid</code> header, reused for the session</td>
+</tr>
+</tbody>
+</table>
+<p>DMAPI is a request/response HTTP API: each response is <code>Key: Value</code> headers, a
+blank line, then an optional body; <code>Status-Code: 0</code> means success.</p>
+<ul>
+<li><code>list_zones</code> → <code>query-domain-list</code> (first token of each line is the domain).</li>
+<li><code>records</code> / <code>export</code> → <code>dns-zone-get</code> returns Joker's line format
+  (<code>&lt;label&gt; &lt;type&gt; &lt;pri&gt; &lt;target&gt; &lt;ttl&gt; ...</code>, <code>@</code> for the apex, TXT targets
+  double-quoted); the adapter converts it to BIND and synthesizes the <code>SOA</code>
+  (Joker manages the SOA, so it is never in a zone-get).</li>
+<li><code>import-zone</code> / <code>copy</code> / <code>delete_all_records</code> → <code>dns-zone-put</code> with the
+  converted zone text (the <code>SOA</code> is never sent).</li>
+<li><code>nameservers</code> (read) → the apex <code>NS</code> records in the virtual zone.</li>
+<li><code>nameservers NS1 NS2 ...</code> (assign) → <code>domain-modify</code> with a colon-separated
+  <code>ns-list</code> — a real registrar delegation change.</li>
+</ul>
 <h2 id="documented-planned-providers">Documented (planned) providers<a class="headerlink" href="#documented-planned-providers" title="Permanent link">&para;</a></h2>
 <p>These have a <code>ProviderSpec</code> and research notes but <strong>no adapter</strong> — they are not
 exposed by <code>donazopy providers</code> and cannot be used operationally yet.</p>
@@ -1135,13 +1354,6 @@ exposed by <code>donazopy providers</code> and cannot be used operationally yet.
 <td><a href="https://api.gandi.net/docs/">api.gandi.net</a></td>
 </tr>
 <tr>
-<td><code>godaddy</code></td>
-<td>GoDaddy</td>
-<td>dns_and_registrar</td>
-<td><code>GODADDY_API_KEY</code>, <code>GODADDY_API_SECRET</code></td>
-<td><a href="https://developer.godaddy.com/doc/endpoint/domains">developer.godaddy.com</a></td>
-</tr>
-<tr>
 <td><code>google_cloud</code></td>
 <td>Google Cloud DNS</td>
 <td>dns_host</td>
@@ -1168,20 +1380,6 @@ exposed by <code>donazopy providers</code> and cannot be used operationally yet.
 <td>dns_and_registrar</td>
 <td><code>HOSTINGER_API_TOKEN</code></td>
 <td><a href="https://developers.hostinger.com/">developers.hostinger.com</a></td>
-</tr>
-<tr>
-<td><code>ionos</code></td>
-<td>IONOS</td>
-<td>dns_and_registrar</td>
-<td><code>IONOS_API_PUBLIC</code>, <code>IONOS_API_SECRET</code></td>
-<td><a href="https://developer.hosting.ionos.com/docs/dns">IONOS DNS</a></td>
-</tr>
-<tr>
-<td><code>joker</code></td>
-<td>Joker.com DMAPI</td>
-<td>dns_and_registrar</td>
-<td><code>JOKER_USERNAME</code>, <code>JOKER_PASSWORD</code></td>
-<td><a href="https://joker.com/faq/content/6/496/en/what-is-dmapi.html">Joker DMAPI</a></td>
 </tr>
 <tr>
 <td><code>linode</code></td>
@@ -1241,8 +1439,8 @@ adapter exists.</p>
    <code>ProviderAPIError</code> / <code>ProviderCredentialError</code> for failures; never leak
    tokens into error messages or logs.</li>
 <li><strong>Register it</strong> in <code>providers/registry.py</code>: add the spec to
-   <code>_OPERATIONAL_PROVIDERS</code> and wire <code>create_dns_provider</code> /
-   <code>create_registrar_provider</code> to construct your adapter.</li>
+   <code>_OPERATIONAL_PROVIDERS</code> and the adapter class to <code>_PROVIDER_FACTORIES</code> (the
+   shared table behind <code>create_dns_provider</code> / <code>create_registrar_provider</code>).</li>
 <li><strong>Add mocked HTTP tests</strong> under <code>tests/test_&lt;key&gt;_provider.py</code> covering auth
    headers, request bodies, pagination, API validation errors, and idempotent
    no-change behavior. Live tests, if any, must be opt-in via explicit

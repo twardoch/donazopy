@@ -17,17 +17,20 @@ src/donazopy/
     ├── base.py        # capabilities, credential loading, ProviderError types,
     │                  #   DNSHostingProvider / RegistrarProvider protocols
     ├── registry.py    # operational-provider registry + adapter factories
-    ├── cloudflare.py  # the one implemented adapter (CloudflareProvider)
-    └── <provider>.py  # documented-only ProviderSpec stubs (aws, azure, godaddy, …)
+    ├── cloudflare.py  # operational adapter (CloudflareProvider)
+    ├── godaddy.py     # operational adapter (GoDaddyProvider)
+    ├── ionos.py       # operational adapter (IonosProvider)
+    ├── joker.py       # operational adapter (JokerProvider)
+    └── <provider>.py  # documented-only ProviderSpec stubs (aws, azure, namecheap, …)
 ```
 
-Tests mirror `src/` under `tests/` (`test_cli.py`, `test_zonefile.py`, `test_cloudflare_provider.py`, `test_registry.py`, `test_provider_base.py`, `test_package.py`).
+Tests mirror `src/` under `tests/` (`test_cli.py`, `test_zonefile.py`, `test_cloudflare_provider.py`, `test_godaddy_provider.py`, `test_ionos_provider.py`, `test_joker_provider.py`, `test_registry.py`, `test_provider_base.py`, `test_package.py`).
 
 ## Layers
 
 1. **CLI layer** (`cli.py`, `__main__.py`) — `Donazopy` is a plain class whose methods are commands; `fire.Fire(Donazopy)` turns it into a CLI. Methods do argument plumbing only: parse the target, resolve the provider, call the engine/adapter, return a JSON-serializable value.
 1. **Target layer** (`target.py`) — turns a `[provider/][domain][:type][:host][:value]` string into a typed `Target`, and resolves which operational provider to use when the prefix is omitted. Also decides whether a string is a local file path (for `diff`).
-1. **Provider layer** (`providers/`) — `registry.py` knows which providers are *operational* and constructs adapters; `base.py` defines the capability constants, credential loading (`python-dotenv` + env, redacted status), the `ProviderError` hierarchy, and the `DNSHostingProvider` / `RegistrarProvider` protocols; each `providers/<key>.py` either implements an adapter (`cloudflare.py`) or just declares a `ProviderSpec`.
+1. **Provider layer** (`providers/`) — `registry.py` knows which providers are *operational* and constructs adapters; `base.py` defines the capability constants, credential loading (`python-dotenv` + env, redacted status), the `ProviderError` hierarchy, and the `DNSHostingProvider` / `RegistrarProvider` protocols; each `providers/<key>.py` either implements an adapter (`cloudflare.py`, `godaddy.py`, `ionos.py`, `joker.py`) or just declares a `ProviderSpec`.
 1. **Zone engine** (`zonefile.py`) — pure, network-free. Parses BIND text with `dnspython`, normalizes records, filters them, diffs two record sets, and writes files safely (never overwriting without permission).
 
 ## Data flow of a command

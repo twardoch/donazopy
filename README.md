@@ -9,7 +9,7 @@ Supported workflows:
 1. **Local zone files** — validate, normalize, compare two zones as a change summary.
 2. **Provider DNS** — load credentials from `.env` or environment, list/export/import records, copy zones between providers, read/assign nameservers, diff a live zone against a file.
 
-Only Cloudflare is functional today. Other providers are tracked in `TODO.md`.
+Operational providers today: **Cloudflare**, **GoDaddy**, **IONOS**, and **Joker.com (DMAPI)**. Further providers are tracked in `TODO.md`.
 
 ## Installation
 
@@ -28,13 +28,18 @@ Credentials are loaded with [`python-dotenv`](https://pypi.org/project/python-do
 - Real environment variables override `.env` values.
 - Status output shows presence and source only — secret values are never printed.
 
-For Cloudflare create an ignored `.env`:
+Create an ignored `.env` with the credentials for the provider(s) you use:
 
 ```dotenv
-CLOUDFLARE_API_TOKEN=your-token
+CLOUDFLARE_API_TOKEN=your-token          # Cloudflare (DNS Read for list/export, DNS Edit for import/copy)
+GODADDY_API_KEY=your-key                 # GoDaddy
+GODADDY_API_SECRET=your-secret
+IONOS_API_PUBLIC=your-public-prefix      # IONOS (combined as "{public}.{secret}" in the X-API-Key header)
+IONOS_API_SECRET=your-secret
+JOKER_API_KEY=your-dmapi-api-key         # Joker.com DMAPI
 ```
 
-The token needs DNS Read for listing/export and DNS Edit for import/copy.
+Run `donazopy status` to see, per provider, which variables are present and where they came from (values are never printed).
 
 ## Target notation
 
@@ -116,8 +121,11 @@ uv run donazopy diff cloudflare/example.com example.com.zone
 
 | Provider | Status |
 | --- | --- |
-| Cloudflare | Implemented: record listing, BIND export/import, zone copy, nameserver read, credential status. |
-| IONOS, Joker, AWS Route 53, Google Cloud DNS, Azure DNS, Namecheap, GoDaddy, DNSimple, Gandi, Porkbun, Dynadot, Vercel, DigitalOcean, Hetzner, Linode, Vultr, Hosting.com, Hostinger, Bluehost | Planned only — not exposed until real adapters and tests exist. |
+| Cloudflare | Operational: record listing, BIND export/import, zone copy, nameserver read, credential status. `assign_nameservers` is "not supported" (Cloudflare DNS cannot set registrar delegation). |
+| GoDaddy | Operational: domain list, record listing, BIND export, record import (PATCH/append), `delete_all_records`, registrar nameserver read **and** assignment. |
+| IONOS | Operational: zone list, record listing, BIND export/import, `delete_all_records`, apex nameserver read. `assign_nameservers` is "not supported" (the IONOS DNS API cannot change registrar delegation). |
+| Joker.com (DMAPI) | Operational: domain list, virtual DNS zone export/import (Joker↔BIND), `delete_all_records`, registrar nameserver read **and** assignment. |
+| AWS Route 53, Google Cloud DNS, Azure DNS, Namecheap, DNSimple, Gandi, Porkbun, Dynadot, Vercel, DigitalOcean, Hetzner, Linode, Vultr, Hosting.com, Hostinger, Bluehost | Planned only — not exposed until real adapters and tests exist. |
 
 ## Safety model
 
@@ -125,8 +133,8 @@ uv run donazopy diff cloudflare/example.com example.com.zone
 - Output writes refuse to overwrite existing files unless `--overwrite` is passed.
 - `copy --replace` deletes all destination records before importing; use with care.
 - Credentials are loaded through `python-dotenv` and environment variables, then redacted in status output.
-- Unsupported providers are not exposed by `donazopy providers`.
-- `assign_nameservers` via Cloudflare raises a clear "not supported" error (the Cloudflare DNS API cannot set registrar delegation; use a registrar-capable provider when that feature lands).
+- Unsupported providers are not exposed by `donazopy providers`; only providers with a real adapter and tests appear.
+- `assign_nameservers` raises a clear "not supported" error on DNS-only delegation surfaces (Cloudflare, IONOS); use a registrar-capable provider (GoDaddy, Joker) to change delegation.
 
 ## Documentation
 

@@ -752,11 +752,15 @@ flow of a typical command, summarizes the typing conventions, and indexes the
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    ├── base.py        # capabilities, credential loading, ProviderError types,
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    │                  #   DNSHostingProvider / RegistrarProvider protocols
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    ├── registry.py    # operational-provider registry + adapter factories
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    ├── cloudflare.py  # the one implemented adapter (CloudflareProvider)
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    └── &lt;provider&gt;.py  # documented-only ProviderSpec stubs (aws, azure, godaddy, …)
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    ├── cloudflare.py  # operational adapter (CloudflareProvider)
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    ├── godaddy.py     # operational adapter (GoDaddyProvider)
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    ├── ionos.py       # operational adapter (IonosProvider)
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    ├── joker.py       # operational adapter (JokerProvider)
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    └── &lt;provider&gt;.py  # documented-only ProviderSpec stubs (aws, azure, namecheap, …)
 </span></code></pre></div>
 <p>Tests mirror <code>src/</code> under <code>tests/</code> (<code>test_cli.py</code>, <code>test_zonefile.py</code>,
-<code>test_cloudflare_provider.py</code>, <code>test_registry.py</code>, <code>test_provider_base.py</code>,
+<code>test_cloudflare_provider.py</code>, <code>test_godaddy_provider.py</code>, <code>test_ionos_provider.py</code>,
+<code>test_joker_provider.py</code>, <code>test_registry.py</code>, <code>test_provider_base.py</code>,
 <code>test_package.py</code>).</p>
 <h2 id="layers">Layers<a class="headerlink" href="#layers" title="Permanent link">&para;</a></h2>
 <ol>
@@ -773,7 +777,8 @@ flow of a typical command, summarizes the typing conventions, and indexes the
    constants, credential loading (<code>python-dotenv</code> + env, redacted status), the
    <code>ProviderError</code> hierarchy, and the <code>DNSHostingProvider</code> / <code>RegistrarProvider</code>
    protocols; each <code>providers/&lt;key&gt;.py</code> either implements an adapter
-   (<code>cloudflare.py</code>) or just declares a <code>ProviderSpec</code>.</li>
+   (<code>cloudflare.py</code>, <code>godaddy.py</code>, <code>ionos.py</code>, <code>joker.py</code>) or just declares a
+   <code>ProviderSpec</code>.</li>
 <li><strong>Zone engine</strong> (<code>zonefile.py</code>) — pure, network-free. Parses BIND text with
    <code>dnspython</code>, normalizes records, filters them, diffs two record sets, and
    writes files safely (never overwriting without permission).</li>

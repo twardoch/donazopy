@@ -20,13 +20,12 @@ Verified-solved items are moved into `CHANGELOG.md` under `[Unreleased]` after e
 
 - [ ] Add Cloudflare create/update/delete record synchronization from zone diffs after unsafe-change protections are designed.
 - [ ] Add mocked and opt-in live tests for Cloudflare imports against a disposable zone before broad write workflows are promoted.
-- [ ] Implement real `assign_nameservers` for a registrar-capable provider (e.g. Namecheap, GoDaddy, IONOS) once those adapters land.
-- [ ] Implement IONOS DNS zone-file get/put and registrar delegation flows.
-- [ ] Implement Joker DMAPI domain delegation and virtual DNS zone get/put flows.
+- [ ] Wire IONOS registrar delegation (`assign_nameservers`) via the IONOS domains API; the DNS adapter currently raises "not supported".
+- [ ] Add opt-in live integration tests for the GoDaddy, IONOS, and Joker adapters gated by explicit environment variables.
 - [ ] Implement AWS Route 53 hosted-zone sync and registrar delegation flows.
 - [ ] Implement Google Cloud DNS hosted-zone sync and document Cloud Domains delegation limitations.
 - [ ] Implement Azure DNS hosted-zone sync.
-- [ ] Implement Namecheap, GoDaddy, DNSimple, Gandi, Porkbun, and Dynadot domain/DNS adapters.
+- [ ] Implement Namecheap, DNSimple, Gandi, Porkbun, and Dynadot domain/DNS adapters.
 - [ ] Implement DNS-only adapters for Vercel, DigitalOcean, Hetzner, Linode, and Vultr.
 - [ ] Research and validate Hosting.com, Hostinger, and Bluehost API capabilities before enabling operations.
 - [ ] Add mocked HTTP tests for every provider adapter before live integration tests.
@@ -56,6 +55,11 @@ Verified-solved items are moved into `CHANGELOG.md` under `[Unreleased]` after e
 
 ## Done (moved to CHANGELOG.md)
 
+- [x] Operational GoDaddy adapter (`src/donazopy/providers/godaddy.py`): domain list, record listing, BIND export, record import (PATCH/append), `delete_all_records` per type+name, registrar nameserver read and assignment.
+- [x] Operational IONOS adapter (`src/donazopy/providers/ionos.py`): zones, records, BIND export/import, delete-all, apex NS read; `assign_nameservers` raises "not supported".
+- [x] Operational Joker.com DMAPI adapter (`src/donazopy/providers/joker.py`): login/session, domain list, virtual DNS zone get/put with Joker↔BIND conversion, apex NS read, `assign_nameservers` via `domain-modify`; credentials switched to `JOKER_API_KEY`.
+- [x] `build_bind_zone` helper in `src/donazopy/zonefile.py` for generating parseable BIND text from provider record mappings.
+- [x] Mocked HTTP tests for the GoDaddy, IONOS, and Joker adapters; registry/CLI/docs updated to expose four operational providers.
 - [x] Unified target notation (`src/donazopy/target.py`) with `parse_target` / `resolve_provider_key` / `looks_like_path`.
 - [x] Simplified and renamed CLI command set: `status`, `records`, `export`, `import-zone`, `copy`, `nameservers`, `diff`, `validate`, `normalize`; old `provider*` / `zone-*` / `validate-zone` commands removed.
 - [x] `export` / `copy` `--skip-ns` and `--skip-types` filtering; `copy --replace` via `delete_all_records`.

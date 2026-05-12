@@ -90,14 +90,14 @@ def test_version_when_called_then_returns_string() -> None:
 
 
 def test_providers_when_called_then_lists_operational_keys() -> None:
-    assert Donazopy().providers() == ["cloudflare"]
+    assert Donazopy().providers() == ["cloudflare", "godaddy", "ionos", "joker"]
 
 
 def test_status_when_no_target_then_returns_entry_per_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("CLOUDFLARE_API_TOKEN", raising=False)
     result = Donazopy().status()
 
-    assert set(result) == {"cloudflare"}
+    assert set(result) == {"cloudflare", "godaddy", "ionos", "joker"}
     assert result["cloudflare"]["metadata"]["key"] == "cloudflare"
     assert "credential_status" in result["cloudflare"]
 

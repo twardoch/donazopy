@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
@@ -120,6 +120,117 @@ def parse_zone_file(path: Path, origin: str | None = None, *, relativize: bool =
 def zone_to_text(zone: dns.zone.Zone) -> str:
     """Serialize a parsed zone back to BIND-compatible text."""
     return zone.to_text(relativize=False)
+
+
+_RDATA_NEEDS_FQDN = {"CNAME", "NS", "PTR", "DNAME"}
+_DEFAULT_SYNTHETIC_NS = "ns.invalid."
+
+
+def _absolute_owner(name: str, origin_abs: str) -> str:
+    """Return an absolute owner name with a trailing dot for a provider record name."""
+    name = (name or "").strip()
+    bare_origin = origin_abs.rstrip(".")
+    if not name or name == "@":
+        return origin_abs
+    if name.endswith("."):
+        return name
+    if name == bare_origin or name.endswith("." + bare_origin):
+        return name + "."
+    return f"{name}.{origin_abs}"
+
+
+def _ensure_dot(value: str) -> str:
+    value = value.strip()
+    return value if not value or value.endswith(".") else value + "."
+
+
+def _normalize_soa_content(content: str) -> str:
+    parts = content.split()
+    if len(parts) < 7:
+        return content
+    return " ".join([_ensure_dot(parts[0]), _ensure_dot(parts[1]), *parts[2:7]])
+
+
+def _coerce_int(value: object, default: int) -> int:
+    try:
+        return int(str(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _rdata_for_bind(rtype: str, content: str, prio: object) -> str:
+    content = content.strip()
+    if rtype in {"MX", "SRV"}:
+        head = content.split(" ", 1)[0]
+        if prio is not None and not head.isdigit():
+            content = f"{_coerce_int(prio, 0)} {content}"
+    if rtype == "TXT" and not content.startswith('"'):
+        return '"' + content.replace('"', '\\"') + '"'
+    if rtype in _RDATA_NEEDS_FQDN:
+        return _ensure_dot(content)
+    if rtype == "MX":
+        head, _, rest = content.partition(" ")
+        if head.isdigit() and rest:
+            return f"{head} {_ensure_dot(rest)}"
+        return _ensure_dot(content)
+    return content
+
+
+def build_bind_zone(
+    origin: str,
+    records: Iterable[Mapping[str, object]],
+    *,
+    default_ttl: int = 3600,
+    synthetic_nameserver: str = _DEFAULT_SYNTHETIC_NS,
+) -> str:
+    """Build BIND-compatible zone text from provider record mappings.
+
+    Each mapping should provide ``type`` and ``content`` (rdata text), plus optionally
+    ``name`` (FQDN, relative label, or ``"@"`` for the apex; defaults to the apex),
+    ``ttl``, ``prio`` (folded into the rdata for ``MX``/``SRV`` when ``content`` does
+    not already begin with the priority), and ``disabled`` (records are skipped when
+    truthy). A synthetic ``SOA`` and/or apex ``NS`` record is generated only when the
+    provider omits one, so the result always parses with :func:`parse_zone_text`.
+    """
+    origin_abs = origin if origin.endswith(".") else f"{origin}."
+    body: list[str] = []
+    has_soa = False
+    has_apex_ns = False
+    for record in records:
+        if record.get("disabled"):
+            continue
+        rtype = str(record.get("type") or "").strip().upper()
+        if not rtype:
+            continue
+        owner = _absolute_owner(str(record.get("name") or "@"), origin_abs)
+        ttl = _coerce_int(record.get("ttl"), default_ttl)
+        raw_content = str(record.get("content") or record.get("value") or "").strip()
+        prio = record.get("prio")
+        if prio is None:
+            prio = record.get("priority")
+        if rtype == "SOA":
+            # Some providers expose only the primary nameserver in their SOA "content"
+            # rather than the full 7-field rdata; treat those as absent so a synthetic
+            # SOA is generated instead of emitting an unparseable record.
+            if len(raw_content.split()) < 7:
+                continue
+            has_soa = True
+            body.append(f"{owner}\t{ttl}\tIN\tSOA\t{_normalize_soa_content(raw_content)}")
+            continue
+        rdata = _rdata_for_bind(rtype, raw_content, prio)
+        if rtype == "NS" and owner == origin_abs:
+            has_apex_ns = True
+        body.append(f"{owner}\t{ttl}\tIN\t{rtype}\t{rdata}")
+    prefix: list[str] = []
+    if not has_soa:
+        prefix.append(
+            f"{origin_abs}\t{default_ttl}\tIN\tSOA\t"
+            f"{synthetic_nameserver} hostmaster.{origin_abs} 1 7200 3600 1209600 3600"
+        )
+    if not has_apex_ns:
+        prefix.append(f"{origin_abs}\t{default_ttl}\tIN\tNS\t{synthetic_nameserver}")
+    header = [f"$ORIGIN {origin_abs}", f"$TTL {default_ttl}"]
+    return "\n".join([*header, *prefix, *body]) + "\n"
 
 
 def validate_zone_file(path: Path, origin: str | None = None) -> str:

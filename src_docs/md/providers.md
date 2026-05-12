@@ -9,7 +9,8 @@ donazopy keeps a hard line between two kinds of providers:
 
 - **Operational providers** — they have a real, tested adapter and are exposed
   by `donazopy providers`. You can run `records`, `export`, `import-zone`,
-  `nameservers`, etc. against them. Today that is **only Cloudflare**.
+  `nameservers`, etc. against them. Today those are **Cloudflare**, **GoDaddy**,
+  **IONOS**, and **Joker.com (DMAPI)**.
 - **Documented providers** — researched in [`spec/`](architecture.md#specification-chapters)
   and tracked in `TODO.md`, with a `ProviderSpec` describing their metadata and
   required credentials, but **no adapter yet**. They are deliberately *not*
@@ -65,10 +66,13 @@ class DNSHostingProvider(Protocol):
     def export_zone(self, domain: str) -> str: ...
     def import_zone(self, domain: str, zone_text: str, *, proxied: bool | None = None) -> Mapping[str, object]: ...
     def list_records(self, domain: str) -> list[Mapping[str, object]]: ...
+    def delete_all_records(self, domain: str) -> Mapping[str, object]: ...
+    def list_zones(self) -> list[str]: ...
 
 class RegistrarProvider(Protocol):
     spec: ProviderSpec
     def read_nameservers(self, domain: str) -> tuple[str, ...]: ...
+    def assign_nameservers(self, domain: str, nameservers: Sequence[str]) -> Mapping[str, object]: ...
 ```
 
 A provider can implement either or both. Unsupported operations should fail
@@ -138,6 +142,82 @@ registration), not a hosted-zone one — see [spec chapter 09](architecture.md#s
 That workflow is out of scope today; it will only be exposed when there is a real
 registrar adapter with mocked/live tests behind it.
 
+## Operational provider: GoDaddy
+
+| Field | Value |
+| --- | --- |
+| Key | `godaddy` |
+| Category | `dns_and_registrar` |
+| API base | `https://api.godaddy.com/v1` |
+| Docs | <https://developer.godaddy.com/doc/endpoint/domains> |
+| Credentials | `GODADDY_API_KEY`, `GODADDY_API_SECRET` |
+| Auth | `Authorization: sso-key {key}:{secret}` |
+
+- `records` / `export` → `GET /v1/domains/{domain}/records`; records are relative
+  (`@` for the apex). GoDaddy keeps `MX`/`SRV` priority (and `SRV` weight/port)
+  in dedicated fields, which the adapter folds back into BIND rdata. GoDaddy's
+  `SOA` carries only the primary nameserver, so a synthetic SOA is generated on
+  export.
+- `import-zone` → `PATCH /v1/domains/{domain}/records` (appends the parsed
+  records; the GoDaddy-managed `SOA` is never re-sent).
+- `copy --replace` / `delete_all_records` → `DELETE /v1/domains/{domain}/records/{type}/{name}`
+  per type+name group, preserving the apex `NS` and `SOA`.
+- `nameservers` (read) → the `nameServers` field on `GET /v1/domains/{domain}`.
+- `nameservers NS1 NS2 ...` (assign) → `PUT /v1/domains/{domain}` with
+  `{"nameServers": [...]}` — a real registrar delegation change.
+
+GoDaddy's production API restricts some domain endpoints by account size/plan;
+those limits surface as `ProviderAPIError` with the GoDaddy message.
+
+## Operational provider: IONOS
+
+| Field | Value |
+| --- | --- |
+| Key | `ionos` |
+| Category | `dns_and_registrar` |
+| API base | `https://api.hosting.ionos.com/dns/v1` |
+| Docs | <https://developer.hosting.ionos.com/docs/dns> |
+| Credentials | `IONOS_API_PUBLIC`, `IONOS_API_SECRET` |
+| Auth | `X-API-Key: {public}.{secret}` |
+
+- `list_zones` → `GET /zones`; the zone is resolved by name, then
+  `GET /zones/{id}` returns its records (`disabled` records are dropped on
+  export). IONOS includes the real `SOA` and `NS` records, so the BIND export is
+  a complete standalone zone.
+- `import-zone` → `POST /zones/{id}/records` with the parsed records; the
+  IONOS-managed `SOA` is never re-sent.
+- `delete_all_records` → `DELETE /zones/{id}/records/{recordId}` for every
+  non-`SOA` record.
+- `nameservers` (read) → the apex `NS` records in the zone.
+- `nameservers NS1 NS2 ...` (assign) → **not supported**: the IONOS DNS API
+  cannot change registrar delegation. Update it in the IONOS domain management
+  area / domains API.
+
+## Operational provider: Joker.com (DMAPI)
+
+| Field | Value |
+| --- | --- |
+| Key | `joker` |
+| Category | `dns_and_registrar` |
+| API base | `https://dmapi.joker.com/request/` |
+| Docs | <https://dmapi.joker.com/> |
+| Credentials | `JOKER_API_KEY` |
+| Auth | `login` with `api-key` → `Auth-Sid` header, reused for the session |
+
+DMAPI is a request/response HTTP API: each response is `Key: Value` headers, a
+blank line, then an optional body; `Status-Code: 0` means success.
+
+- `list_zones` → `query-domain-list` (first token of each line is the domain).
+- `records` / `export` → `dns-zone-get` returns Joker's line format
+  (`<label> <type> <pri> <target> <ttl> ...`, `@` for the apex, TXT targets
+  double-quoted); the adapter converts it to BIND and synthesizes the `SOA`
+  (Joker manages the SOA, so it is never in a zone-get).
+- `import-zone` / `copy` / `delete_all_records` → `dns-zone-put` with the
+  converted zone text (the `SOA` is never sent).
+- `nameservers` (read) → the apex `NS` records in the virtual zone.
+- `nameservers NS1 NS2 ...` (assign) → `domain-modify` with a colon-separated
+  `ns-list` — a real registrar delegation change.
+
 ## Documented (planned) providers
 
 These have a `ProviderSpec` and research notes but **no adapter** — they are not
@@ -152,13 +232,10 @@ exposed by `donazopy providers` and cannot be used operationally yet.
 | `dnsimple` | DNSimple | dns_and_registrar | `DNSIMPLE_TOKEN`, `DNSIMPLE_ACCOUNT_ID` | [developer.dnsimple.com](https://developer.dnsimple.com/) |
 | `dynadot` | Dynadot | dns_and_registrar | `DYNADOT_API_KEY` | [Dynadot API](https://www.dynadot.com/domain/api.html) |
 | `gandi` | Gandi | dns_and_registrar | `GANDI_API_KEY` | [api.gandi.net](https://api.gandi.net/docs/) |
-| `godaddy` | GoDaddy | dns_and_registrar | `GODADDY_API_KEY`, `GODADDY_API_SECRET` | [developer.godaddy.com](https://developer.godaddy.com/doc/endpoint/domains) |
 | `google_cloud` | Google Cloud DNS | dns_host | `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_CLOUD_PROJECT` | [Cloud DNS v1](https://cloud.google.com/dns/docs/reference/v1/) |
 | `hetzner` | Hetzner DNS | dns_host | `HETZNER_DNS_TOKEN` | [dns.hetzner.com](https://dns.hetzner.com/api-docs/) |
 | `hosting_com` | Hosting.com | dns_and_registrar | `HOSTING_COM_TOKEN` | [hosting.com](https://www.hosting.com/) |
 | `hostinger` | Hostinger | dns_and_registrar | `HOSTINGER_API_TOKEN` | [developers.hostinger.com](https://developers.hostinger.com/) |
-| `ionos` | IONOS | dns_and_registrar | `IONOS_API_PUBLIC`, `IONOS_API_SECRET` | [IONOS DNS](https://developer.hosting.ionos.com/docs/dns) |
-| `joker` | Joker.com DMAPI | dns_and_registrar | `JOKER_USERNAME`, `JOKER_PASSWORD` | [Joker DMAPI](https://joker.com/faq/content/6/496/en/what-is-dmapi.html) |
 | `linode` | Linode DNS | dns_host | `LINODE_TOKEN` | [Linode API](https://techdocs.akamai.com/linode-api/reference/get-domains) |
 | `namecheap` | Namecheap | dns_and_registrar | `NAMECHEAP_API_USER`, `NAMECHEAP_API_KEY`, `NAMECHEAP_USERNAME`, `NAMECHEAP_CLIENT_IP` | [Namecheap API](https://www.namecheap.com/support/api/intro/) |
 | `porkbun` | Porkbun | dns_and_registrar | `PORKBUN_API_KEY`, `PORKBUN_SECRET_API_KEY` | [Porkbun API v3](https://porkbun.com/api/json/v3/documentation) |
@@ -185,8 +262,8 @@ exposed by `donazopy providers` and cannot be used operationally yet.
    `ProviderAPIError` / `ProviderCredentialError` for failures; never leak
    tokens into error messages or logs.
 4. **Register it** in `providers/registry.py`: add the spec to
-   `_OPERATIONAL_PROVIDERS` and wire `create_dns_provider` /
-   `create_registrar_provider` to construct your adapter.
+   `_OPERATIONAL_PROVIDERS` and the adapter class to `_PROVIDER_FACTORIES` (the
+   shared table behind `create_dns_provider` / `create_registrar_provider`).
 5. **Add mocked HTTP tests** under `tests/test_<key>_provider.py` covering auth
    headers, request bodies, pagination, API validation errors, and idempotent
    no-change behavior. Live tests, if any, must be opt-in via explicit

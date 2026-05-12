@@ -24,12 +24,16 @@ src/donazopy/
     ├── base.py        # capabilities, credential loading, ProviderError types,
     │                  #   DNSHostingProvider / RegistrarProvider protocols
     ├── registry.py    # operational-provider registry + adapter factories
-    ├── cloudflare.py  # the one implemented adapter (CloudflareProvider)
-    └── <provider>.py  # documented-only ProviderSpec stubs (aws, azure, godaddy, …)
+    ├── cloudflare.py  # operational adapter (CloudflareProvider)
+    ├── godaddy.py     # operational adapter (GoDaddyProvider)
+    ├── ionos.py       # operational adapter (IonosProvider)
+    ├── joker.py       # operational adapter (JokerProvider)
+    └── <provider>.py  # documented-only ProviderSpec stubs (aws, azure, namecheap, …)
 ```
 
 Tests mirror `src/` under `tests/` (`test_cli.py`, `test_zonefile.py`,
-`test_cloudflare_provider.py`, `test_registry.py`, `test_provider_base.py`,
+`test_cloudflare_provider.py`, `test_godaddy_provider.py`, `test_ionos_provider.py`,
+`test_joker_provider.py`, `test_registry.py`, `test_provider_base.py`,
 `test_package.py`).
 
 ## Layers
@@ -47,7 +51,8 @@ Tests mirror `src/` under `tests/` (`test_cli.py`, `test_zonefile.py`,
    constants, credential loading (`python-dotenv` + env, redacted status), the
    `ProviderError` hierarchy, and the `DNSHostingProvider` / `RegistrarProvider`
    protocols; each `providers/<key>.py` either implements an adapter
-   (`cloudflare.py`) or just declares a `ProviderSpec`.
+   (`cloudflare.py`, `godaddy.py`, `ionos.py`, `joker.py`) or just declares a
+   `ProviderSpec`.
 4. **Zone engine** (`zonefile.py`) — pure, network-free. Parses BIND text with
    `dnspython`, normalizes records, filters them, diffs two record sets, and
    writes files safely (never overwriting without permission).

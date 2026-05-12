@@ -41,16 +41,15 @@ Concise forward plan for `donazopy`. Each phase maps to flat `- [ ]` items in `T
 
 **Goal:** add at least two registrar-capable providers (for real `assign_nameservers`) and two DNS-only providers.
 
-Recommended priority order based on market share and API quality:
+Done: **GoDaddy** (DNS + real `assign_nameservers`), **IONOS** (DNS adapter; registrar delegation still pending the IONOS domains API), and **Joker.com DMAPI** (DNS + real `assign_nameservers`) are operational and appear in `donazopy providers`. Remaining priority order based on market share and API quality:
 
-1. **IONOS** — DNS zone-file get/put + registrar delegation.
-2. **Namecheap** — domain/DNS adapter including real `assign_nameservers`.
-3. **AWS Route 53** — hosted-zone sync + document Route 53 Registrar delegation.
-4. **Google Cloud DNS** — hosted-zone sync; document Cloud Domains delegation limitations.
-5. **Azure DNS** — hosted-zone sync.
-6. **GoDaddy, DNSimple, Gandi, Porkbun, Dynadot** — domain/DNS adapters.
-7. **Vercel, DigitalOcean, Hetzner, Linode, Vultr** — DNS-only adapters.
-8. **Hosting.com, Hostinger, Bluehost** — research API capabilities first; enable only if confirmed.
+1. **Namecheap** — domain/DNS adapter including real `assign_nameservers`.
+2. **AWS Route 53** — hosted-zone sync + document Route 53 Registrar delegation.
+3. **Google Cloud DNS** — hosted-zone sync; document Cloud Domains delegation limitations.
+4. **Azure DNS** — hosted-zone sync.
+5. **DNSimple, Gandi, Porkbun, Dynadot** — domain/DNS adapters.
+6. **Vercel, DigitalOcean, Hetzner, Linode, Vultr** — DNS-only adapters.
+7. **Hosting.com, Hostinger, Bluehost** — research API capabilities first; enable only if confirmed.
 
 Every adapter requires mocked HTTP tests before live integration tests.
 
