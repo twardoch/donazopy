@@ -49,7 +49,9 @@ def test_credential_status_when_token_missing_then_reports_missing() -> None:
 def test_provider_status_when_credentials_required_then_raise_clear_error() -> None:
     provider = get_provider("cloudflare")
 
-    with pytest.raises(ProviderCredentialError, match="missing required credentials for cloudflare: CLOUDFLARE_API_TOKEN"):
+    with pytest.raises(
+        ProviderCredentialError, match="missing required credentials for cloudflare: CLOUDFLARE_API_TOKEN"
+    ):
         from donazopy.providers.base import require_provider_credentials
 
         require_provider_credentials(provider, env={}, discover=False)

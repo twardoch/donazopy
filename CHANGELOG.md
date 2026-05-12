@@ -6,7 +6,69 @@ The format follows Keep a Changelog, and this project uses git-tag-derived seman
 
 ## [Unreleased]
 
-### Added
+### Added (issue 203 — unified target notation, CLI restructure, docs site)
+
+#### Unified target notation (`src/donazopy/target.py`)
+- Added new module `src/donazopy/target.py` implementing `parse_target`, `resolve_provider_key`, `looks_like_path`, and the frozen `Target` dataclass.
+- Target notation: `[provider/][domain][:record_type][:host_name][:value]`. Each segment defaults to "no filter"; `*` is also accepted as an explicit wildcard.
+- `example.com` resolves to whichever sole operational provider manages it; if there are multiple, the command errors and asks for an explicit `provider/` prefix.
+- `cloudflare/example.com` (and `:*:*:*` variants) selects that domain on that provider.
+- `cloudflare/*` selects all domains on the provider.
+- Trailing `:TYPE:host:value` segments are record-level filters; `*` means no filter on that field.
+- `looks_like_path` distinguishes local zone-file paths from provider targets by extension, prefix, and path-separator heuristics.
+
+#### Simplified and renamed CLI command set
+- Added `donazopy status [TARGET] [--dotenv-path]` (replaces `provider` and `provider-status`).
+- Added `donazopy records TARGET [--dotenv-path]` (replaces `provider-records`).
+- Added `donazopy export TARGET [--output] [--overwrite] [--skip-ns] [--skip-types] [--dotenv-path]` (replaces `provider-export-zone`).
+- Added `donazopy import-zone TARGET PATH [--proxied] [--dotenv-path]` (replaces `provider-import-zone`).
+- Added `donazopy nameservers TARGET [NS...] [--dotenv-path]` (replaces `provider-nameservers`; now also accepts new nameservers as positional args to assign them).
+- Added `donazopy diff A B [--origin] [--dotenv-path]` (replaces `zone-diff`; each side may be a local zone-file path or a provider target).
+- Added `donazopy validate PATH [--origin]` (replaces `validate-zone`).
+- Added `donazopy normalize PATH [--origin] [--output] [--overwrite]` (replaces `zone-normalize` / `zone-dump`).
+- Added `donazopy copy SOURCE DEST [--skip-ns] [--skip-types] [--replace] [--dotenv-path]` — new command, copies a zone from one provider target to another, with optional `--skip-ns` / `--skip-types` filtering and `--replace` to wipe destination records first.
+
+#### Export / copy filtering
+- `export` and `copy` both accept `--skip-ns` (drop NS records) and `--skip-types=A,AAAA,...` (drop a comma-separated list of record types).
+- `copy --replace` calls `delete_all_records` on the destination domain before importing.
+
+#### Cloudflare provider additions
+- Added `list_zones` to enumerate all zones on the account.
+- Added `delete_all_records(domain)` used by `copy --replace` to wipe destination records.
+- Added `assign_nameservers(domain, nameservers)` — raises a clear "not supported" error because the Cloudflare DNS API cannot set registrar delegation; documented as a placeholder for registrar-capable providers.
+
+#### Zone-file helpers
+- Added `filter_zone_text(text, origin, skip_ns, skip_types)` to drop NS or given-type records from raw BIND text.
+- Added `filter_records(records, skip_ns, skip_types)` for record-list filtering.
+- Added `records_from_zone_text(text, origin)` for in-memory zone parsing without a file.
+
+#### Documentation site
+- Added ProtoDocs (`properdocs`) + MaterialX (`mkdocs-materialx`) documentation site.
+- Source pages in `src_docs/md/`: index, installation, quickstart, cli, targets, providers, zonefiles, architecture, contributing, changelog.
+- MkDocs config at `mkdocs/mkdocs.yml`.
+- Pre-built static output committed to `docs/`.
+- Build and serve via `./docs.sh build` / `./docs.sh serve`.
+- Docs dependencies added to `pyproject.toml` under `[dependency-groups] docs`.
+
+### Changed (issue 203)
+- CLI is now a single unified `Donazopy` Fire class; all commands use the target notation instead of separate provider/zone command namespaces.
+- `diff` now accepts provider targets as well as local zone file paths on either side.
+- README rewritten to document the new command surface, target notation, and documentation site.
+
+### Removed (issue 203 — clean break from old command names)
+- Removed `provider` (show provider info) — replaced by `status`.
+- Removed `provider-status` — replaced by `status`.
+- Removed `provider-records` — replaced by `records`.
+- Removed `provider-export-zone` — replaced by `export`.
+- Removed `provider-import-zone` — replaced by `import-zone`.
+- Removed `provider-nameservers` — replaced by `nameservers`.
+- Removed `validate-zone` — replaced by `validate`.
+- Removed `zone-normalize` / `zone-dump` — replaced by `normalize`.
+- Removed `zone-diff` — replaced by `diff`.
+
+---
+
+### Added (earlier work)
 - Added the initial Hatch/uv Python package scaffold for `donazopy`.
 - Added Fire-based CLI entry points for version, provider listing, provider information, and zone validation.
 - Added Fire-based CLI entry points for zone normalization, zone dump output, and zone diff planning.
@@ -19,15 +81,12 @@ The format follows Keep a Changelog, and this project uses git-tag-derived seman
 - Added build and publish scripts matching the project brief.
 - Added Pyright configuration and tests for package metadata, operational provider registry behavior, CLI metadata, zone validation, zone normalization, zone diffing, dotenv credential redaction, and Cloudflare API operations with mocked HTTP.
 
-### Changed
+### Changed (earlier work)
 - Limited the runtime provider registry to functional operational providers only; Cloudflare is currently the only exposed provider.
 - Expanded the README into a focused user/developer guide covering dotenv credentials, local zone commands, Cloudflare operations, safety behavior, and the functional provider matrix.
 - Corrected package metadata to use the Apache Software License classifier, matching `LICENSE`.
 - Moved verified-solved setup, zone-engine, dotenv credential-loading, Cloudflare-provider, and documentation tasks out of `TODO.md` so it only tracks remaining work.
 
-### Removed
+### Removed (earlier work)
 - Removed provider dry-run plan and adapter-stub surfaces that advertised behavior without performing real provider operations.
 - Removed nonfunctional providers from the runtime provider list until they have real adapters and tests.
-
-### Fixed
-- No prior TODO entries existed before the first implementation loop, so there were no historical verified-solved items to move from `TODO.md` into this changelog.

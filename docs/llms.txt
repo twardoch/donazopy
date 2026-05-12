@@ -1,0 +1,25 @@
+# donazopy
+
+> A focused Python CLI for local DNS zone-file work and real, tested DNS-provider operations.
+
+A focused Python CLI for local DNS zone-file work and real, tested DNS-provider operations.
+
+## Overview
+
+- [Home](https://github.com/twardoch/donazopy/index.md): What donazopy is and which workflows it supports.
+- [Installation](https://github.com/twardoch/donazopy/installation/index.md): Installing and setting up donazopy for use and development.
+- [Quick start](https://github.com/twardoch/donazopy/quickstart/index.md): A guided walkthrough of the core commands.
+
+## Reference
+
+- [CLI reference](https://github.com/twardoch/donazopy/cli/index.md): Full reference for every CLI command.
+- [Target notation](https://github.com/twardoch/donazopy/targets/index.md): The unified target notation grammar.
+- [Providers](https://github.com/twardoch/donazopy/providers/index.md): The provider model and per-provider status.
+- [Zone files](https://github.com/twardoch/donazopy/zonefiles/index.md): BIND zone-file parsing, validation, normalization, and diffing.
+
+## Project
+
+- [Architecture](https://github.com/twardoch/donazopy/architecture/index.md): Package layout, data flow, and the spec chapters.
+- [Contributing](https://github.com/twardoch/donazopy/contributing/index.md): Development workflow and contribution guidelines.
+- [Changelog](https://github.com/twardoch/donazopy/changelog/index.md): Release notes.
+

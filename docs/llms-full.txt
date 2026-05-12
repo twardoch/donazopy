@@ -1,0 +1,1142 @@
+# donazopy
+
+> A focused Python CLI for local DNS zone-file work and real, tested DNS-provider operations.
+
+A focused Python CLI for local DNS zone-file work and real, tested DNS-provider operations.
+
+# Overview
+
+# donazopy
+
+**donazopy** is a focused Python command-line tool for local DNS zone-file work and for real, *implemented-and-tested* DNS-provider operations. It deliberately avoids pretending to support things it does not: every provider you see exposed in the CLI has a working adapter behind it.
+
+One sentence
+
+Parse, validate, normalize, and diff BIND zone files locally — and read, export, and import DNS zones on providers that actually have a tested adapter (today: Cloudflare).
+
+## What it does today
+
+donazopy currently supports two practical workflows:
+
+1. **Local BIND-style zone files** — validate a zone, normalize it to a stable canonical form, write the normalized output safely (never overwriting without an explicit flag), and compare two zones as a structured create/update/delete/unchanged plan.
+1. **Cloudflare DNS zones** — load credentials from a `.env` file or the environment, list DNS records, export a Cloudflare zone as BIND text, import BIND zone text into Cloudflare, and read the nameservers Cloudflare has assigned to a zone.
+
+A larger set of providers is *documented* in [`spec/`](https://github.com/twardoch/donazopy/architecture/#specification-chapters) and tracked in `TODO.md`, but those are intentionally **not** exposed as operational CLI providers until they have real adapters and mocked or live tests. See [Providers](https://github.com/twardoch/donazopy/providers/index.md) for the full status table.
+
+## Philosophy
+
+- **Safety first.** Zone-file operations are local and deterministic. Output writes refuse to clobber existing files unless you pass `--overwrite`. Destructive provider work must be backed by tests, explicit commands, and credential redaction before it ships.
+- **Parse, don't validate.** Raw zone text is parsed once, at the boundary, into a normalized record model (`dnspython` does the heavy lifting). After that, the rest of the code works with typed, canonical records — not strings.
+- **Real, implemented-only providers.** `donazopy providers` lists only providers with a working adapter. No stubs, no placeholders that advertise behavior they cannot perform.
+- **Secrets stay secret.** Credentials are loaded through `python-dotenv` and environment variables, then *redacted* in status output — `donazopy status` reports presence and source, never the value.
+
+## Feature matrix
+
+| Capability                     | Local zone files         | Cloudflare                                                       |
+| ------------------------------ | ------------------------ | ---------------------------------------------------------------- |
+| Validate / normalize / dump    | ✅                       | —                                                                |
+| Diff two zones                 | ✅ (`diff` on two paths) | ✅ (`diff` path vs provider, or provider vs provider)            |
+| List records                   | —                        | ✅ `records`                                                     |
+| Export zone to BIND text       | —                        | ✅ `export`                                                      |
+| Import BIND zone into provider | —                        | ✅ `import-zone`                                                 |
+| Read assigned nameservers      | —                        | ✅ `nameservers`                                                 |
+| Reassign registrar nameservers | —                        | ❌ not supported (registrar/parent-zone API; out of scope today) |
+| Credential status (redacted)   | n/a                      | ✅ `status`                                                      |
+
+## Where to go next
+
+- New here? Start with [Installation](https://github.com/twardoch/donazopy/installation/index.md), then the [Quick start](https://github.com/twardoch/donazopy/quickstart/index.md).
+- Want the full command list? See the [CLI reference](https://github.com/twardoch/donazopy/cli/index.md).
+- Curious about `cloudflare/example.com:TXT:_dmarc:*`? Read [Target notation](https://github.com/twardoch/donazopy/targets/index.md).
+- Working with zone files? See [Zone files](https://github.com/twardoch/donazopy/zonefiles/index.md).
+- Want to add a provider or hack on the code? See [Architecture](https://github.com/twardoch/donazopy/architecture/index.md) and [Contributing](https://github.com/twardoch/donazopy/contributing/index.md).
+
+# Installation
+
+donazopy targets **Python 3.12+** and is packaged with [Hatch](https://hatch.pypa.io/) plus [`hatch-vcs`](https://github.com/ophidian-org/hatch-vcs) for git-tag-derived semantic versions. Day-to-day work uses [`uv`](https://docs.astral.sh/uv/).
+
+## Requirements
+
+- Python 3.12 or newer.
+- `uv` (recommended) — installs and resolves dependencies from the lockfile.
+- Git, if you build from a clone (the version is derived from git tags).
+
+Runtime dependencies (declared in `pyproject.toml`):
+
+| Package         | Why                                             |
+| --------------- | ----------------------------------------------- |
+| `dnspython`     | Parsing and serializing BIND zone files.        |
+| `fire`          | Turning the `Donazopy` class into a CLI.        |
+| `httpx`         | HTTP client for provider APIs (Cloudflare).     |
+| `python-dotenv` | Loading provider credentials from `.env` files. |
+
+## Install for development (from a clone)
+
+```bash
+git clone https://github.com/twardoch/donazopy.git
+cd donazopy
+uv sync
+```
+
+`uv sync` creates a virtual environment in `.venv/` and installs the locked dependencies. After that you can run the CLI through `uv`:
+
+```bash
+uv run donazopy version
+```
+
+Don't use bare `pip`
+
+Use `uv add <package>` to add a dependency, or `uv sync` to install. Bare `pip install` bypasses the lockfile.
+
+## Install as a tool
+
+Once the package is published you can install the `donazopy` command globally with `uv`:
+
+```bash
+uv tool install donazopy
+donazopy version
+```
+
+To install from a local checkout as a tool:
+
+```bash
+uv tool install --from . donazopy
+```
+
+## Verify the install
+
+```bash
+uv run donazopy version
+# -> "1.0.2" (or whatever your git tag resolves to)
+
+uv run donazopy providers
+# -> ['cloudflare']
+```
+
+If `donazopy version` prints a version string and `donazopy providers` lists at least `cloudflare`, the install is good.
+
+## Building the docs
+
+The documentation site (this site) is built with [`properdocs`](https://pypi.org/project/properdocs/) (a thin successor to MkDocs) and the [`mkdocs-materialx`](https://pypi.org/project/mkdocs-materialx/) theme. Sources live in `src_docs/md/`, the MkDocs config is `mkdocs/mkdocs.yml`, and the compiled site lands in `docs/`.
+
+```bash
+./docs.sh          # build the site into docs/
+./docs.sh serve    # live-preview at http://127.0.0.1:8000/
+```
+
+The docs dependencies are declared in a separate dependency group in `pyproject.toml`, so a normal `uv sync` for using donazopy does not pull them in; `./docs.sh` fetches them on demand via `uv run --group docs`.
+
+See [Contributing](https://github.com/twardoch/donazopy/contributing/index.md) for the full development workflow.
+
+# Quick start
+
+This page walks through the core workflows end to end. It assumes you have donazopy installed (see [Installation](https://github.com/twardoch/donazopy/installation/index.md)) and that you can run it as `donazopy ...` or `uv run donazopy ...`.
+
+## 1. Credentials
+
+Provider credentials are loaded with [`python-dotenv`](https://pypi.org/project/python-dotenv/):
+
+1. donazopy discovers a `.env` file starting from the current working directory.
+1. You can point at an explicit file with `--dotenv-path=path/to/.env`.
+1. Real environment variables **override** values from `.env`.
+1. Status output reports only *presence* and *source* — it never prints secret values.
+
+For Cloudflare, create an ignored `.env` file:
+
+.env
+
+```text
+CLOUDFLARE_API_TOKEN=your-cloudflare-api-token
+```
+
+Never commit secrets
+
+`.env`, `.pypirc`, provider tokens, and private research are all ignored/forbidden in this repo. Keep secrets in local environment variables or ignored config files only.
+
+The Cloudflare token needs the right scopes for what you run:
+
+- **Zone → DNS → Read** for `records`, `export`, and `nameservers`.
+- **Zone → DNS → Edit** for `import-zone`.
+
+## 2. Discover providers
+
+```bash
+donazopy providers
+# ['cloudflare']
+```
+
+Only providers with a working adapter are listed. To see details and credential requirements:
+
+```bash
+donazopy providers          # just the keys
+donazopy status cloudflare  # redacted credential status for one provider
+```
+
+`status` (without a target) reports which credential variables are present, from which source, and whether the set is complete — never the values themselves.
+
+## 3. Inspect a Cloudflare zone
+
+Check that your token works and that the zone exists:
+
+```bash
+donazopy status cloudflare --dotenv-path=.env
+```
+
+List all DNS records for a domain:
+
+```bash
+donazopy records cloudflare/example.com --dotenv-path=.env
+```
+
+The output is JSON (Fire renders the return value), one object per Cloudflare DNS record, with the raw Cloudflare fields (`type`, `name`, `content`, `ttl`, `proxied`, …).
+
+## 4. Export the zone to a BIND file
+
+```bash
+donazopy export cloudflare/example.com --output=example.com.zone --overwrite --dotenv-path=.env
+```
+
+Without `--output`, the zone text is returned (printed) instead of written. `--overwrite` is required if the file already exists. You can also trim the export:
+
+```bash
+# drop NS records (the apex SOA is always kept) and skip A/AAAA records
+donazopy export cloudflare/example.com --output=clean.zone --skip-ns --skip-types=A,AAAA --dotenv-path=.env
+```
+
+## 5. Edit the zone file
+
+Open `example.com.zone` in your editor and make changes — add a TXT record, fix a CNAME, bump a TTL. Then validate and normalize it locally before pushing:
+
+```bash
+donazopy validate example.com.zone --origin=example.com.
+donazopy normalize example.com.zone --origin=example.com.
+```
+
+Want to see exactly what will change relative to what Cloudflare currently has?
+
+```bash
+donazopy diff cloudflare/example.com example.com.zone --origin=example.com.
+```
+
+`diff` accepts a provider target *or* a local zone-file path on either side. Here it compares the live Cloudflare zone (`before`) against your edited file (`after`) and prints a `creates` / `updates` / `deletes` / `unchanged` plan.
+
+## 6. Import the zone back into Cloudflare
+
+```bash
+donazopy import-zone cloudflare/example.com example.com.zone --dotenv-path=.env
+```
+
+This uses Cloudflare's native zone-import endpoint. Pass `--proxied` to mark imported proxiable records as proxied.
+
+Back up first
+
+Run an `export` to a file before an `import-zone` so you always have the previous state on disk.
+
+## 7. Read the assigned nameservers
+
+```bash
+donazopy nameservers cloudflare/example.com --dotenv-path=.env
+# ['xyz.ns.cloudflare.com', 'abc.ns.cloudflare.com']
+```
+
+This reads the nameservers Cloudflare has assigned to the zone. donazopy does **not** reassign your domain's registrar-level delegation — that is a registrar/parent-zone operation and is out of scope today (see [Providers](https://github.com/twardoch/donazopy/providers/#nameservers-and-delegation)).
+
+## 8. Copy a zone between domains (optional)
+
+```bash
+donazopy copy cloudflare/source.example cloudflare/dest.example --skip-ns --replace --dotenv-path=.env
+```
+
+`copy` exports the source zone and imports it into the destination, optionally filtering records (`--skip-ns`, `--skip-types=...`) and replacing the destination's records (`--replace`).
+
+______________________________________________________________________
+
+Next: the full [CLI reference](https://github.com/twardoch/donazopy/cli/index.md), or the [Target notation](https://github.com/twardoch/donazopy/targets/index.md) grammar that all the `provider/domain` arguments above follow.
+# Reference
+
+# CLI reference
+
+donazopy is built on [Python Fire](https://github.com/google/python-fire), so every command returns a Python value that Fire renders (strings print as text; dicts and lists print as JSON-ish structures). Run any command with `--help` to see Fire's auto-generated usage.
+
+Command surface
+
+This page documents the **current** command surface. Commands take a [target](https://github.com/twardoch/donazopy/targets/index.md) (`[provider/][domain][:type][:host][:value]`) or a local zone-file path where noted. The `--dotenv-path` flag is accepted by every command that talks to a provider.
+
+## Conventions
+
+| Notation             | Meaning                                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------------------- |
+| `TARGET`             | A [target string](https://github.com/twardoch/donazopy/targets/index.md), e.g. `cloudflare/example.com`. |
+| `PATH`               | A path to a local BIND zone file.                                                                        |
+| `[...]`              | Optional argument or flag.                                                                               |
+| `--flag=VALUE`       | A Fire keyword flag. Boolean flags also accept the bare `--flag` form.                                   |
+| `--dotenv-path=PATH` | Explicit `.env` file for credential loading (overrides discovery).                                       |
+
+Exit behavior: a successful command returns its value and exits `0`. Errors (bad target, missing credentials, provider API failure, refusing to overwrite a file, invalid zone) raise an exception, which Fire prints as a traceback and exits non-zero.
+
+______________________________________________________________________
+
+## `version`
+
+```bash
+donazopy version
+```
+
+Prints the installed package version (derived from git tags via `hatch-vcs`). No arguments. Returns a string.
+
+```text
+$ donazopy version
+1.0.2
+```
+
+______________________________________________________________________
+
+## `providers`
+
+```bash
+donazopy providers
+```
+
+Lists the **operational** provider keys — providers that have a working adapter behind them. No arguments. Returns a list of strings.
+
+```text
+$ donazopy providers
+['cloudflare']
+```
+
+Providers documented in `spec/` but not yet implemented are deliberately *not* listed here. See [Providers](https://github.com/twardoch/donazopy/providers/index.md) for the full table.
+
+______________________________________________________________________
+
+## `status`
+
+```bash
+donazopy status [TARGET] [--dotenv-path=PATH]
+```
+
+Reports **redacted** credential status. Given a provider (via `TARGET`, e.g. `cloudflare` or `cloudflare/example.com`), it loads credentials from `.env` and the environment and reports:
+
+- `required` — the credential variable names this provider needs.
+- `present` — which of those were found.
+- `missing` — which are still needed.
+- `complete` — whether the full set is present.
+- `sources` — for each present credential, where it came from (a `.env` path or `"environment"`).
+- `redacted` — `{name: "***"}` for each present credential. Secret values are **never** printed.
+
+```text
+$ donazopy status cloudflare --dotenv-path=.env
+{
+  "provider_key": "cloudflare",
+  "required": ["CLOUDFLARE_API_TOKEN"],
+  "present": ["CLOUDFLARE_API_TOKEN"],
+  "missing": [],
+  "complete": true,
+  "sources": {"CLOUDFLARE_API_TOKEN": ".env"},
+  "redacted": {"CLOUDFLARE_API_TOKEN": "***"}
+}
+```
+
+______________________________________________________________________
+
+## `records`
+
+```bash
+donazopy records TARGET [--dotenv-path=PATH]
+```
+
+Lists every DNS record in the target zone on the target provider. Requires the provider's credentials to be complete. Returns a list of record mappings — the raw provider fields (for Cloudflare: `id`, `type`, `name`, `content`, `ttl`, `proxied`, `priority`, …).
+
+```bash
+donazopy records cloudflare/example.com --dotenv-path=.env
+```
+
+The `:type:host:value` segments of the target act as **client-side filters** on the returned records (see [Target notation](https://github.com/twardoch/donazopy/targets/#record-level-filters)).
+
+______________________________________________________________________
+
+## `export`
+
+```bash
+donazopy export TARGET [--output=PATH] [--overwrite] [--skip-ns] [--skip-types=A,AAAA,...] [--dotenv-path=PATH]
+```
+
+Exports the target zone as BIND-compatible zone text using the provider's native export endpoint where available (Cloudflare has one).
+
+| Flag                      | Effect                                                                                   |
+| ------------------------- | ---------------------------------------------------------------------------------------- |
+| `--output=PATH`           | Write the zone text to `PATH`. Without it, the text is returned/printed.                 |
+| `--overwrite`             | Allow overwriting an existing `--output` file. Without it, an existing file is an error. |
+| `--skip-ns`               | Drop `NS` records from the output. The apex `SOA` is always kept.                        |
+| `--skip-types=A,AAAA,...` | Comma-separated record types to drop entirely (case-insensitive).                        |
+| `--dotenv-path=PATH`      | Explicit `.env` for credentials.                                                         |
+
+```bash
+# print to stdout
+donazopy export cloudflare/example.com --dotenv-path=.env
+
+# write a trimmed copy
+donazopy export cloudflare/example.com --output=example.com.zone --overwrite --skip-ns --skip-types=A,AAAA --dotenv-path=.env
+```
+
+Returns the zone text (a string), even when `--output` is given.
+
+______________________________________________________________________
+
+## `import-zone`
+
+```bash
+donazopy import-zone TARGET PATH [--proxied] [--dotenv-path=PATH]
+```
+
+Reads BIND zone text from `PATH` and imports it into the target zone on the provider using the provider's native zone-import endpoint.
+
+| Argument / flag      | Meaning                                                                                      |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| `TARGET`             | The provider zone to import into, e.g. `cloudflare/example.com`.                             |
+| `PATH`               | Local BIND zone file to read.                                                                |
+| `--proxied`          | Mark imported proxiable records as proxied (Cloudflare). Omit to leave the provider default. |
+| `--dotenv-path=PATH` | Explicit `.env` for credentials.                                                             |
+
+```bash
+donazopy import-zone cloudflare/example.com example.com.zone --dotenv-path=.env
+```
+
+Returns the provider's import-result mapping (record counts, etc.).
+
+Run an export first
+
+`import-zone` changes live DNS. Always `export` the current zone to a file beforehand so you have a backup.
+
+______________________________________________________________________
+
+## `copy`
+
+```bash
+donazopy copy SOURCE DEST [--skip-ns] [--skip-types=...] [--replace] [--dotenv-path=PATH]
+```
+
+Exports the `SOURCE` zone and imports it into the `DEST` zone — a convenience for migrating or cloning zones (typically within the same provider).
+
+| Flag                 | Effect                                                     |
+| -------------------- | ---------------------------------------------------------- |
+| `--skip-ns`          | Drop `NS` records from what gets copied (apex `SOA` kept). |
+| `--skip-types=...`   | Comma-separated record types to drop.                      |
+| `--replace`          | Replace the destination zone's records instead of merging. |
+| `--dotenv-path=PATH` | Explicit `.env` for credentials.                           |
+
+```bash
+donazopy copy cloudflare/old.example cloudflare/new.example --skip-ns --replace --dotenv-path=.env
+```
+
+______________________________________________________________________
+
+## `nameservers`
+
+```bash
+donazopy nameservers TARGET [NS1 NS2 ...] [--dotenv-path=PATH]
+```
+
+With no `NS` arguments, **reads** the nameservers the provider has assigned to the target zone and returns them as a list of strings.
+
+```text
+$ donazopy nameservers cloudflare/example.com --dotenv-path=.env
+['ada.ns.cloudflare.com', 'bob.ns.cloudflare.com']
+```
+
+Reassignment is not supported
+
+Passing `NS1 NS2 ...` to *set* registrar-level nameservers is **not** supported for Cloudflare and is out of scope today: changing a domain's delegation is a registrar/parent-zone operation, not a hosted-zone one. See [Providers → Nameservers and delegation](https://github.com/twardoch/donazopy/providers/#nameservers-and-delegation).
+
+______________________________________________________________________
+
+## `diff`
+
+```bash
+donazopy diff A B [--origin=ORIGIN] [--dotenv-path=PATH]
+```
+
+Compares two zones and returns a structured change plan. `A` and `B` may each be **either** a local zone-file path **or** a provider target — donazopy detects which (see [Target notation → local-path detection](https://github.com/twardoch/donazopy/targets/#local-path-detection)).
+
+| Argument / flag      | Meaning                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `A`, `B`             | Zone-file paths or provider targets. `A` is "before", `B` is "after".                                         |
+| `--origin=ORIGIN`    | Zone origin (e.g. `example.com.`) used when parsing zone *files*. Inferred from the filename stem if omitted. |
+| `--dotenv-path=PATH` | Explicit `.env`, used if either side is a provider target.                                                    |
+
+Returns:
+
+```json
+{
+  "summary": "creates=1 updates=0 deletes=2 unchanged=14",
+  "changes": {
+    "creates":   [ { "kind": "create",   "before": null, "after": { ... } } ],
+    "updates":   [ { "kind": "update",   "before": { ... }, "after": { ... } } ],
+    "deletes":   [ { "kind": "delete",   "before": { ... }, "after": null } ],
+    "unchanged": [ { "kind": "unchanged", "before": { ... }, "after": { ... } } ]
+  }
+}
+```
+
+Each record object has `owner`, `ttl`, `record_class`, `record_type`, `value`, and `source_order`. See [Zone files → the diff algorithm](https://github.com/twardoch/donazopy/zonefiles/#the-diff-algorithm) for how the plan is computed (identity vs exact key).
+
+```bash
+# two local files
+donazopy diff before.zone after.zone --origin=example.com.
+
+# provider vs local file
+donazopy diff cloudflare/example.com edited.zone --origin=example.com. --dotenv-path=.env
+
+# provider vs provider
+donazopy diff cloudflare/a.example cloudflare/b.example --dotenv-path=.env
+```
+
+______________________________________________________________________
+
+## `validate`
+
+```bash
+donazopy validate PATH [--origin=ORIGIN]
+```
+
+Parses a local BIND zone file and returns a short success message, or raises if the zone is invalid (empty text, malformed records, SOA/NS problems).
+
+```text
+$ donazopy validate example.com.zone --origin=example.com.
+valid zone example.com.: 12 nodes
+```
+
+`--origin` is the zone origin (with trailing dot, e.g. `example.com.`). If omitted, donazopy infers it from the filename stem (`example.com.zone` → `example.com`).
+
+______________________________________________________________________
+
+## `normalize`
+
+```bash
+donazopy normalize PATH [--origin=ORIGIN] [--output=PATH] [--overwrite]
+```
+
+Parses a zone file and returns its **canonical** form: every record on one line, deterministically ordered (`owner`, `type`, `value`, `ttl`), with a trailing newline. This is the form to commit to version control and to diff against.
+
+| Flag              | Effect                                                       |
+| ----------------- | ------------------------------------------------------------ |
+| `--origin=ORIGIN` | Zone origin; inferred from the filename stem if omitted.     |
+| `--output=PATH`   | Write the normalized text to `PATH` instead of returning it. |
+| `--overwrite`     | Allow overwriting an existing `--output` file.               |
+
+```bash
+donazopy normalize messy.zone --origin=example.com.
+donazopy normalize messy.zone --origin=example.com. --output=clean.zone --overwrite
+```
+
+Returns the normalized text (a string).
+
+______________________________________________________________________
+
+## See also
+
+- [Target notation](https://github.com/twardoch/donazopy/targets/index.md) — the grammar for the `TARGET` arguments above.
+- [Zone files](https://github.com/twardoch/donazopy/zonefiles/index.md) — how validate / normalize / diff work under the hood.
+- [Providers](https://github.com/twardoch/donazopy/providers/index.md) — which providers are operational and what they support.
+
+# Target notation
+
+Most donazopy commands take a **target** — a compact string that names a provider, a domain, and (optionally) a record-level filter. One grammar is used everywhere a `TARGET` appears in the [CLI reference](https://github.com/twardoch/donazopy/cli/index.md).
+
+## Grammar
+
+```text
+target  ::= [ provider "/" ] domain [ ":" record_type [ ":" host_name [ ":" value ] ] ]
+
+provider     ::= a provider key, e.g. "cloudflare"        (optional)
+domain       ::= a domain name, e.g. "example.com", or "*" for "all domains"
+record_type  ::= a DNS type, e.g. "A", "TXT", "MX", or "*" for "no type filter"
+host_name    ::= a record owner name, e.g. "www" or "_dmarc", or "*"
+value        ::= a record value/content, or "*"
+```
+
+In words: **`[provider/][domain][:record_type][:host_name][:value]`**.
+
+- The `provider/` prefix is optional.
+- Up to **four** `:`-separated segments after the (optional) provider: domain, type, host, value. More than four segments is an error.
+- A `*` (or an empty segment) in the `record_type`, `host_name`, or `value` slots means "no filter on this".
+- A `*` in the **domain** slot is special: it means "all domains on the provider" (it is *not* treated as "no filter").
+- `record_type` is matched case-insensitively (normalized to uppercase).
+
+## Examples
+
+| Target                                          | Meaning                                                                                                                           |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `example.com`                                   | The domain `example.com` on whichever **operational** provider manages it (works when there is exactly one operational provider). |
+| `cloudflare/example.com`                        | `example.com` on Cloudflare, all records.                                                                                         |
+| `cloudflare/example.com:*`                      | Same as above (the `:*` adds no filter).                                                                                          |
+| `cloudflare/example.com:*:*:*`                  | Same again — three wildcard filter segments.                                                                                      |
+| `cloudflare/*`                                  | **All domains** on Cloudflare.                                                                                                    |
+| `cloudflare/example.com:A`                      | Only `A` records of `example.com` on Cloudflare.                                                                                  |
+| `cloudflare/example.com:TXT:_dmarc`             | Only the `_dmarc` `TXT` record(s).                                                                                                |
+| `cloudflare/example.com:CNAME:www:example.com.` | Only a `CNAME` named `www` whose value is `example.com.`.                                                                         |
+| `cloudflare/example.com:*:www`                  | Any record type owned by `www`.                                                                                                   |
+
+## Provider resolution (when the prefix is omitted)
+
+When you write a bare `domain` (no `provider/`), donazopy must pick a provider:
+
+- If there is **exactly one** operational provider, that one is used.
+- If there is more than one (or none), donazopy raises an error telling you to prefix the target with `provider/`.
+
+Today the only operational provider is `cloudflare`, so `example.com` resolves to `cloudflare/example.com`. If you name a provider explicitly that is *not* operational (e.g. `godaddy/example.com`), donazopy raises an error listing the available operational providers.
+
+## Record-level filters
+
+The `:record_type:host_name:value` tail filters records *client-side* — donazopy fetches the zone from the provider and then keeps only matching records.
+
+Matching rules (a record is a mapping with `type`, `name`, `content`):
+
+- `record_type` — `record["type"]` upper-cased must equal the filter.
+- `host_name` — `record["name"]` must equal the filter, ignoring a trailing dot on either side (`www` matches `www.example.com.` only if the names are equal after stripping trailing dots — i.e. the comparison is on the literal stored owner name).
+- `value` — `record["content"]` must equal the filter exactly.
+
+A `None` filter (empty or `*`) on any of these always matches. Non-mapping records always match (the filter is a no-op on them).
+
+## Local-path detection
+
+The `diff`, `validate`, and `normalize` commands work with local zone **files**. `validate` and `normalize` always take a path. `diff` takes two arguments that may each be *either* a path or a target, so donazopy has to tell them apart.
+
+A string is treated as a **local path** (not a target) when:
+
+- it contains a path separator (`/` or `\`) **and** looks path-like — e.g. it starts with `/`, `./`, `../`, `~`, or its first `/`-segment contains a `.` (so `zones/example.com.zone` is a path, but `cloudflare/example.com` is a provider target because `cloudflare` has no dot); or
+- it ends with `.zone` or `.txt`; or
+- it points at a file that actually exists on disk.
+
+So:
+
+| String                   | Treated as                                                                                                                                                                                                                 |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `example.com.zone`       | local path (ends in `.zone`)                                                                                                                                                                                               |
+| `./example.com`          | local path (starts with `./`)                                                                                                                                                                                              |
+| `zones/db.example`       | local path (first segment `zones` has no dot... actually has no dot — wait: `zones` has no dot, so this is a path only if `zones/db.example` exists on disk; otherwise it parses as provider `zones`, domain `db.example`) |
+| `cloudflare/example.com` | provider target (`cloudflare` is a known-style provider key, no dot)                                                                                                                                                       |
+| `/etc/zones/example.com` | local path (absolute)                                                                                                                                                                                                      |
+
+Tip
+
+When in doubt, give `diff` an unambiguous path — anything with a directory component, a `./` prefix, or a `.zone`/`.txt` extension is unambiguously a file.
+
+## Errors you might see
+
+- `target is empty; expected '[provider/][domain][:record_type][:host_name][:value]'` — you passed an empty or whitespace-only target.
+- `target 'X' has an empty provider before '/'; use 'provider/domain'` — you wrote `/example.com`.
+- `target 'X' has too many ':' segments; expected at most 'domain:record_type:host_name:value'` — more than four `:`-separated segments.
+- `target 'X' has no provider and no domain; ...` — nothing usable in the string.
+- `provider 'X' is not an operational provider; available: cloudflare` — you named a documented-but-not-implemented provider.
+- `target 'X' does not specify a provider and there is not exactly one operational provider ...` — ambiguous; add a `provider/` prefix.
+
+## See also
+
+- [CLI reference](https://github.com/twardoch/donazopy/cli/index.md) — every command that takes a target.
+- [Providers](https://github.com/twardoch/donazopy/providers/index.md) — which providers are operational.
+- [Zone files](https://github.com/twardoch/donazopy/zonefiles/index.md) — what `diff` / `validate` / `normalize` do with files.
+
+# Providers
+
+donazopy keeps a hard line between two kinds of providers:
+
+- **Operational providers** — they have a real, tested adapter and are exposed by `donazopy providers`. You can run `records`, `export`, `import-zone`, `nameservers`, etc. against them. Today that is **only Cloudflare**.
+- **Documented providers** — researched in [`spec/`](https://github.com/twardoch/donazopy/architecture/#specification-chapters) and tracked in `TODO.md`, with a `ProviderSpec` describing their metadata and required credentials, but **no adapter yet**. They are deliberately *not* listed by `donazopy providers` so the CLI never advertises behavior it cannot perform.
+
+## The provider model
+
+Each provider lives in its own module under `src/donazopy/providers/` (`cloudflare.py`, `namecheap.py`, `google_cloud.py`, …). Shared contracts live in `base.py`; the registry is `registry.py`.
+
+### `ProviderSpec` — static metadata
+
+Every provider module exposes a `PROVIDER = ProviderSpec(...)` value:
+
+| Field          | Meaning                                                  |
+| -------------- | -------------------------------------------------------- |
+| `key`          | The CLI key, e.g. `"cloudflare"`. Lowercase, no dot.     |
+| `display_name` | Human name, e.g. `"AWS Route 53"`.                       |
+| `category`     | `"dns_host"`, `"dns_and_registrar"`, etc.                |
+| `docs_url`     | Link to the provider's official API docs.                |
+| `credentials`  | Tuple of environment-variable names this provider needs. |
+| `capabilities` | Tuple of `ProviderCapability` values it advertises.      |
+| `notes`        | A short caveat / description.                            |
+
+`ProviderSpec.supports("zone_write")` answers capability questions.
+
+### Capabilities
+
+Capabilities are named constants in `providers/base.py`:
+
+| Capability        | Meaning                                               |
+| ----------------- | ----------------------------------------------------- |
+| `zone_read`       | Read hosted DNS zones and records.                    |
+| `zone_write`      | Create / update / delete / import hosted DNS records. |
+| `zone_export`     | Export DNS config to BIND-compatible zone text.       |
+| `zone_import`     | Import / synchronize DNS config from zone text.       |
+| `delegation_read` | Read registrar-level nameserver delegation.           |
+| `domain_read`     | List or inspect registered domains.                   |
+
+Bundles: `DNS_ONLY = (zone_read, zone_write, zone_export, zone_import)`; `DNS_AND_REGISTRAR_READ = DNS_ONLY + (domain_read, delegation_read)`; `DNS_AND_REGISTRAR` is the same set today.
+
+### Adapter contracts
+
+Two `Protocol`s define what an adapter must implement:
+
+```python
+class DNSHostingProvider(Protocol):
+    spec: ProviderSpec
+    def export_zone(self, domain: str) -> str: ...
+    def import_zone(self, domain: str, zone_text: str, *, proxied: bool | None = None) -> Mapping[str, object]: ...
+    def list_records(self, domain: str) -> list[Mapping[str, object]]: ...
+
+class RegistrarProvider(Protocol):
+    spec: ProviderSpec
+    def read_nameservers(self, domain: str) -> tuple[str, ...]: ...
+```
+
+A provider can implement either or both. Unsupported operations should fail clearly, not silently no-op.
+
+### Credential loading
+
+Credentials are loaded with `python-dotenv` plus the environment, in this order (later wins):
+
+1. A discovered `.env` (searched upward from the current working directory).
+1. An explicit `.env` passed via `--dotenv-path`.
+1. Real environment variables.
+
+`credential_status(spec, ...)` returns a `CredentialStatus` with `required`, `present`, `missing`, `complete`, and `sources` — and `to_dict()` adds a `redacted` map (`{name: "***"}`). **Secret values are never returned.** `require_provider_credentials(spec, ...)` raises `ProviderCredentialError` if any required variable is missing, before any network call.
+
+## Operational provider: Cloudflare
+
+| Field        | Value                                                                                     |
+| ------------ | ----------------------------------------------------------------------------------------- |
+| Key          | `cloudflare`                                                                              |
+| Category     | `dns_and_registrar`                                                                       |
+| API base     | `https://api.cloudflare.com/client/v4`                                                    |
+| Docs         | <https://developers.cloudflare.com/api/>                                                  |
+| Credentials  | `CLOUDFLARE_API_TOKEN`                                                                    |
+| Capabilities | `zone_read`, `zone_write`, `zone_export`, `zone_import`, `domain_read`, `delegation_read` |
+
+### What it does
+
+- `records` → `GET /zones/{id}/dns_records` (paginated, 100/page).
+- `export` → `GET /zones/{id}/dns_records/export` (Cloudflare's native BIND export); the result is returned (and optionally written / filtered).
+- `import-zone` → `POST /zones/{id}/dns_records/import` with the zone file as a multipart upload; `--proxied` sets the `proxied` form field.
+- `nameservers` (read) → the `name_servers` field on the zone object from `GET /zones?name=...`.
+
+Zone lookup is by name: `GET /zones?name=example.com&per_page=1`. A missing zone, a malformed response, or any `4xx`/`5xx` raises `ProviderAPIError` with the Cloudflare error message(s) extracted from the response.
+
+### Token scopes
+
+| Operation                          | Required Cloudflare token permission |
+| ---------------------------------- | ------------------------------------ |
+| `records`, `export`, `nameservers` | Zone → DNS → **Read**                |
+| `import-zone`                      | Zone → DNS → **Edit**                |
+
+Create a scoped API token in the Cloudflare dashboard (My Profile → API Tokens), restricted to the specific zone(s) you operate on, and put it in `.env`:
+
+.env
+
+```text
+CLOUDFLARE_API_TOKEN=your-scoped-token
+```
+
+### Nameservers and delegation
+
+`donazopy nameservers cloudflare/example.com` **reads** the nameservers Cloudflare assigned to the zone. It does **not** change your domain's registrar-level delegation. Reassigning a domain's authoritative nameservers is a *parent-zone / registrar* operation (the registrar that holds the domain registration), not a hosted-zone one — see [spec chapter 09](https://github.com/twardoch/donazopy/architecture/#specification-chapters). That workflow is out of scope today; it will only be exposed when there is a real registrar adapter with mocked/live tests behind it.
+
+## Documented (planned) providers
+
+These have a `ProviderSpec` and research notes but **no adapter** — they are not exposed by `donazopy providers` and cannot be used operationally yet.
+
+| Key            | Display name     | Category          | Required credentials                                                                   | Docs                                                                                                      |
+| -------------- | ---------------- | ----------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `aws`          | AWS Route 53     | dns_and_registrar | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`                             | [boto3 Route 53](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53.html) |
+| `azure`        | Azure DNS        | dns_host          | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_SUBSCRIPTION_ID`   | [Azure DNS REST](https://learn.microsoft.com/en-us/rest/api/dns/)                                         |
+| `bluehost`     | Bluehost         | dns_and_registrar | `BLUEHOST_API_TOKEN`                                                                   | [bluehost.com](https://www.bluehost.com/)                                                                 |
+| `digitalocean` | DigitalOcean DNS | dns_host          | `DIGITALOCEAN_TOKEN`                                                                   | [DO Domains API](https://docs.digitalocean.com/reference/api/api-reference/#tag/Domains)                  |
+| `dnsimple`     | DNSimple         | dns_and_registrar | `DNSIMPLE_TOKEN`, `DNSIMPLE_ACCOUNT_ID`                                                | [developer.dnsimple.com](https://developer.dnsimple.com/)                                                 |
+| `dynadot`      | Dynadot          | dns_and_registrar | `DYNADOT_API_KEY`                                                                      | [Dynadot API](https://www.dynadot.com/domain/api.html)                                                    |
+| `gandi`        | Gandi            | dns_and_registrar | `GANDI_API_KEY`                                                                        | [api.gandi.net](https://api.gandi.net/docs/)                                                              |
+| `godaddy`      | GoDaddy          | dns_and_registrar | `GODADDY_API_KEY`, `GODADDY_API_SECRET`                                                | [developer.godaddy.com](https://developer.godaddy.com/doc/endpoint/domains)                               |
+| `google_cloud` | Google Cloud DNS | dns_host          | `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_CLOUD_PROJECT`                               | [Cloud DNS v1](https://cloud.google.com/dns/docs/reference/v1/)                                           |
+| `hetzner`      | Hetzner DNS      | dns_host          | `HETZNER_DNS_TOKEN`                                                                    | [dns.hetzner.com](https://dns.hetzner.com/api-docs/)                                                      |
+| `hosting_com`  | Hosting.com      | dns_and_registrar | `HOSTING_COM_TOKEN`                                                                    | [hosting.com](https://www.hosting.com/)                                                                   |
+| `hostinger`    | Hostinger        | dns_and_registrar | `HOSTINGER_API_TOKEN`                                                                  | [developers.hostinger.com](https://developers.hostinger.com/)                                             |
+| `ionos`        | IONOS            | dns_and_registrar | `IONOS_API_PUBLIC`, `IONOS_API_SECRET`                                                 | [IONOS DNS](https://developer.hosting.ionos.com/docs/dns)                                                 |
+| `joker`        | Joker.com DMAPI  | dns_and_registrar | `JOKER_USERNAME`, `JOKER_PASSWORD`                                                     | [Joker DMAPI](https://joker.com/faq/content/6/496/en/what-is-dmapi.html)                                  |
+| `linode`       | Linode DNS       | dns_host          | `LINODE_TOKEN`                                                                         | [Linode API](https://techdocs.akamai.com/linode-api/reference/get-domains)                                |
+| `namecheap`    | Namecheap        | dns_and_registrar | `NAMECHEAP_API_USER`, `NAMECHEAP_API_KEY`, `NAMECHEAP_USERNAME`, `NAMECHEAP_CLIENT_IP` | [Namecheap API](https://www.namecheap.com/support/api/intro/)                                             |
+| `porkbun`      | Porkbun          | dns_and_registrar | `PORKBUN_API_KEY`, `PORKBUN_SECRET_API_KEY`                                            | [Porkbun API v3](https://porkbun.com/api/json/v3/documentation)                                           |
+| `vercel`       | Vercel           | dns_host          | `VERCEL_TOKEN`                                                                         | [Vercel DNS API](https://vercel.com/docs/rest-api/reference/endpoints/dns)                                |
+| `vultr`        | Vultr DNS        | dns_host          | `VULTR_API_KEY`                                                                        | [Vultr API](https://www.vultr.com/api/)                                                                   |
+
+Note
+
+`category: dns_host` providers manage hosted zones and records only; registrar-level delegation for those domains lives elsewhere. `category: dns_and_registrar` providers *also* (per their docs) expose domain/delegation APIs — but donazopy will only act on those once a tested adapter exists.
+
+## Adding a new provider
+
+1. **Read the official API docs first.** Do not guess endpoints, field names, or auth schemes.
+1. **Create a module** `src/donazopy/providers/<key>.py` with a `# this_file:` marker and a `PROVIDER = ProviderSpec(...)` describing key, display name, category, docs URL, required credential variable names, capabilities, and notes. (Many of these spec stubs already exist.)
+1. **Implement an adapter class** satisfying `DNSHostingProvider` and/or `RegistrarProvider` from `providers/base.py`. Use `httpx` for HTTP. Raise `ProviderAPIError` / `ProviderCredentialError` for failures; never leak tokens into error messages or logs.
+1. **Register it** in `providers/registry.py`: add the spec to `_OPERATIONAL_PROVIDERS` and wire `create_dns_provider` / `create_registrar_provider` to construct your adapter.
+1. **Add mocked HTTP tests** under `tests/test_<key>_provider.py` covering auth headers, request bodies, pagination, API validation errors, and idempotent no-change behavior. Live tests, if any, must be opt-in via explicit environment variables and disposable zones — never run by default.
+1. Only after the tests pass is the provider "operational". Move the completed `TODO.md` items into `CHANGELOG.md`.
+
+See [Architecture](https://github.com/twardoch/donazopy/architecture/index.md) and [Contributing](https://github.com/twardoch/donazopy/contributing/index.md) for the surrounding conventions.
+
+# Zone files
+
+donazopy treats **local BIND-style zone files as the portable source of truth**. All zone-file work goes through one engine (`src/donazopy/zonefile.py`) built on [`dnspython`](https://www.dnspython.org/), which does the parsing and serialization. This page explains the model and the four operations exposed on the CLI: `validate`, `normalize` (also `dump`), `diff`, and the safe-write behavior shared by `export`/`normalize`.
+
+## The record model
+
+When a zone is parsed, every resource record becomes a `NormalizedRecord`:
+
+| Field          | Meaning                                                                                       |
+| -------------- | --------------------------------------------------------------------------------------------- |
+| `owner`        | Absolute owner name with a trailing dot (e.g. `www.example.com.`).                            |
+| `ttl`          | TTL in seconds (int).                                                                         |
+| `record_class` | DNS class text, almost always `IN`.                                                           |
+| `record_type`  | DNS type text, e.g. `A`, `AAAA`, `CNAME`, `MX`, `TXT`, `SOA`, `NS`, `SRV`, `CAA`, `PTR`.      |
+| `value`        | Stable, origin-derelativized text of the record data.                                         |
+| `source_order` | Index of the record as it appeared in the source (kept for reference; not used for identity). |
+
+Two derived keys drive diffing:
+
+- **`identity`** = `(owner, record_class, record_type)` — "the same kind of record at the same name". Used to pair *changed* records into updates.
+- **`exact_key`** = `(owner, ttl, record_class, record_type, value)` — the full fingerprint. Used to detect records that are byte-for-byte unchanged.
+
+Records are always returned **sorted** by `(owner, record_type, value, ttl)`, so the output is deterministic regardless of provider response ordering or source line order.
+
+## Parsing
+
+- Input can be a file (`parse_zone_file`) or text (`parse_zone_text`).
+- An **origin** is required to parse. From the CLI, pass `--origin=example.com.` (trailing dot). If omitted, donazopy infers the origin from the **filename stem** — `example.com.zone` → `example.com`.
+- Empty/whitespace-only text is rejected (`ZoneFileError: zone text is empty`).
+- `dnspython` parse failures are wrapped as `ZoneFileError` with a readable message: `invalid zone for example.com.: <details>`.
+- `check_origin=True` is used, so SOA/NS expectations at the apex are enforced.
+
+## `validate`
+
+```bash
+donazopy validate PATH [--origin=ORIGIN]
+```
+
+Parses the file and returns `valid zone <origin>: <N> nodes`, or raises `ZoneFileError` if it doesn't parse. Use it as a quick CI gate before pushing a zone to a provider.
+
+## `normalize` / `dump`
+
+```bash
+donazopy normalize PATH [--origin=ORIGIN] [--output=PATH] [--overwrite]
+```
+
+Returns the **canonical** form of the zone: one record per line as `owner ttl class type value`, sorted deterministically, with a trailing newline. This is the form to:
+
+- commit to version control (stable, reviewable diffs),
+- feed to `donazopy diff`,
+- hand to a provider import after review.
+
+`dump` is an alias for `normalize` with the same options.
+
+Example canonical output:
+
+```text
+example.com. 3600 IN A 203.0.113.10
+example.com. 3600 IN MX 10 mail.example.com.
+example.com. 3600 IN NS ada.ns.cloudflare.com.
+example.com. 3600 IN NS bob.ns.cloudflare.com.
+example.com. 3600 IN SOA ada.ns.cloudflare.com. dns.cloudflare.com. 2034010101 10000 2400 604800 3600
+www.example.com. 3600 IN CNAME example.com.
+```
+
+SOA serials
+
+donazopy preserves SOA serials by default — it does not silently invent or bump production serials. (Serial-bump-on-change is a documented future behavior; see [spec chapter 03](https://github.com/twardoch/donazopy/architecture/#specification-chapters).)
+
+## Filtering (`--skip-ns`, `--skip-types`)
+
+`export` (and the internal copy/import path) can drop records before writing or sending them:
+
+- `--skip-ns` — drop all `NS` records. **The apex `SOA` record is always kept** regardless of any filter.
+- `--skip-types=A,AAAA,...` — drop records whose type matches any of the given types (comma-separated, case-insensitive).
+
+These filters operate on the normalized record set, then the result is re-serialized to canonical BIND text. Typical use: produce a "DNS records only, no delegation" copy with `--skip-ns`, or a "no host records" copy for a partial migration with `--skip-types=A,AAAA,CNAME`.
+
+## `diff`
+
+```bash
+donazopy diff A B [--origin=ORIGIN] [--dotenv-path=PATH]
+```
+
+`A` and `B` may each be a local zone-file path **or** a provider target (see [Target notation → local-path detection](https://github.com/twardoch/donazopy/targets/#local-path-detection)). `diff` normalizes both sides into record sets and produces a `ZoneDiff`:
+
+```json
+{
+  "summary": "creates=1 updates=2 deletes=0 unchanged=11",
+  "changes": {
+    "creates":   [ ... ],
+    "updates":   [ ... ],
+    "deletes":   [ ... ],
+    "unchanged": [ ... ]
+  }
+}
+```
+
+Each entry is a `ZoneChange` with a `kind` (`create` / `update` / `delete` / `unchanged`) and `before` / `after` record objects (one of which is `null` for creates and deletes).
+
+### The diff algorithm
+
+1. **Exact match → unchanged.** Records whose `exact_key` appears in *both* sides are emitted as `unchanged`. They are removed from further consideration.
+1. **Group the rest by `identity`** (`owner, class, type`) on each side.
+1. For each identity present on either side:
+1. **Both sides have records** → pair them positionally (sorted by `exact_key`): the first `min(len(before), len(after))` pairs become `update` changes; any extra `before` records become `delete`s; any extra `after` records become `create`s.
+1. **Only `before`** → all become `delete`s.
+1. **Only `after`** → all become `create`s.
+1. The plan is sorted for stable output.
+
+So a TTL change on an `A` record is an `update` (same identity, different `exact_key`); adding a second `A` record at the same name is a `create`; removing a `TXT` record is a `delete`; an identical record on both sides is `unchanged`.
+
+The diff is independent of input ordering — it only depends on the normalized record sets — which makes it safe to compare a provider's API response against a file in version control.
+
+## Safe writes
+
+Any command that writes a file (`export --output`, `normalize --output`) uses `write_text_safely`:
+
+- If the target file **exists** and you did **not** pass `--overwrite`, it raises `ZoneFileError: refusing to overwrite existing file without overwrite=True: <path>`.
+- Parent directories are created as needed.
+- The file is written UTF-8 with the canonical trailing newline.
+
+This is the single most important safety property of the local engine: you never clobber a backup or a working file by accident.
+
+## Errors
+
+| Error                                                                | Cause                                                                  |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `zone text is empty`                                                 | The file/text had no records.                                          |
+| `zone file does not exist: <path>`                                   | Wrong path.                                                            |
+| `invalid zone for <origin>: ...`                                     | `dnspython` couldn't parse it (bad records, SOA/NS problems).          |
+| `refusing to overwrite existing file without overwrite=True: <path>` | `--output` points at an existing file and `--overwrite` was not given. |
+
+## See also
+
+- [CLI reference](https://github.com/twardoch/donazopy/cli/index.md) — `validate`, `normalize`, `diff`, `export`.
+- [Target notation](https://github.com/twardoch/donazopy/targets/index.md) — how `diff` tells a path from a provider target.
+- [Architecture](https://github.com/twardoch/donazopy/architecture/index.md) — where the zone engine sits in the package.
+# Project
+
+# Architecture
+
+donazopy is a small, layered CLI. This page maps the package, traces the data flow of a typical command, summarizes the typing conventions, and indexes the 12-chapter design spec.
+
+## Package layout
+
+```text
+src/donazopy/
+├── __init__.py        # package version (re-exported as donazopy.__version__)
+├── __main__.py        # console-script entry point (-> main())
+├── cli.py             # the Donazopy class: every CLI command is a method
+├── models.py          # ProviderCapability, ProviderSpec dataclasses
+├── target.py          # Target dataclass + parse_target / resolve_provider_key
+├── zonefile.py         # zone-file engine: parse / normalize / filter / diff / safe-write
+└── providers/
+    ├── __init__.py
+    ├── base.py        # capabilities, credential loading, ProviderError types,
+    │                  #   DNSHostingProvider / RegistrarProvider protocols
+    ├── registry.py    # operational-provider registry + adapter factories
+    ├── cloudflare.py  # the one implemented adapter (CloudflareProvider)
+    └── <provider>.py  # documented-only ProviderSpec stubs (aws, azure, godaddy, …)
+```
+
+Tests mirror `src/` under `tests/` (`test_cli.py`, `test_zonefile.py`, `test_cloudflare_provider.py`, `test_registry.py`, `test_provider_base.py`, `test_package.py`).
+
+## Layers
+
+1. **CLI layer** (`cli.py`, `__main__.py`) — `Donazopy` is a plain class whose methods are commands; `fire.Fire(Donazopy)` turns it into a CLI. Methods do argument plumbing only: parse the target, resolve the provider, call the engine/adapter, return a JSON-serializable value.
+1. **Target layer** (`target.py`) — turns a `[provider/][domain][:type][:host][:value]` string into a typed `Target`, and resolves which operational provider to use when the prefix is omitted. Also decides whether a string is a local file path (for `diff`).
+1. **Provider layer** (`providers/`) — `registry.py` knows which providers are *operational* and constructs adapters; `base.py` defines the capability constants, credential loading (`python-dotenv` + env, redacted status), the `ProviderError` hierarchy, and the `DNSHostingProvider` / `RegistrarProvider` protocols; each `providers/<key>.py` either implements an adapter (`cloudflare.py`) or just declares a `ProviderSpec`.
+1. **Zone engine** (`zonefile.py`) — pure, network-free. Parses BIND text with `dnspython`, normalizes records, filters them, diffs two record sets, and writes files safely (never overwriting without permission).
+
+## Data flow of a command
+
+`donazopy export cloudflare/example.com --output=out.zone --skip-ns --dotenv-path=.env`:
+
+```text
+CLI (Donazopy.export)
+  └─ parse_target("cloudflare/example.com")          → Target(provider="cloudflare", domain="example.com", …)
+  └─ resolve_provider_key(target, operational_keys)  → "cloudflare"
+  └─ get_provider("cloudflare")                      → ProviderSpec
+  └─ require_provider_credentials(spec, dotenv_path=.env)
+        └─ dotenv_environment(...)                   → merged {.env, environ}, raises if CLOUDFLARE_API_TOKEN missing
+  └─ create_dns_provider("cloudflare", creds)        → CloudflareProvider
+  └─ CloudflareProvider.export_zone("example.com")
+        └─ GET /zones?name=example.com               → zone id
+        └─ GET /zones/{id}/dns_records/export        → BIND text
+  └─ zonefile.filter_zone_text(text, origin, skip_ns=True)
+        └─ parse → records → drop NS (keep apex SOA) → re-serialize canonical
+  └─ zonefile.write_text_safely(Path("out.zone"), text, overwrite=False)
+        └─ raises if out.zone exists and --overwrite not given
+  └─ return the zone text  → Fire prints it
+```
+
+`donazopy diff a.zone cloudflare/example.com --origin=example.com.` follows the same shape but each side is resolved independently — a local path is read and parsed, a target is fetched via an adapter — and the two normalized record sets are passed to `diff_zone_records`.
+
+## Typing and boundary conventions
+
+- **Parse, don't validate.** Raw zone text and raw provider JSON are converted at the boundary into typed values (`NormalizedRecord`, `Target`, `ProviderSpec`, `CredentialStatus`). Internal code works with those, not strings/dicts.
+- **Frozen dataclasses with `slots`.** `ProviderSpec`, `ProviderCapability`, `Target`, `NormalizedRecord`, `ZoneChange`, `ZoneDiff`, `CredentialStatus`, `LoadedCredentials` are all immutable.
+- **Errors as typed exceptions, raised at the edge.** `TargetError`, `ZoneFileError`, `ProviderError` (with `ProviderCredentialError`, `ProviderAPIError`). Fire turns an uncaught exception into a non-zero exit with a traceback.
+- **`Protocol`s for adapters.** `DNSHostingProvider` / `RegistrarProvider` are `runtime_checkable` protocols, so adapters are structurally typed — no base class to inherit.
+- **Provider isolation.** One module per provider; nothing outside `providers/<key>.py` and `registry.py` knows provider-specific details.
+- **No secrets in output.** Credential status is redacted; adapters must not put tokens into error messages or logs.
+
+Strict typing is configured: `mypy --strict` and Pyright `standard` mode over `src` and `tests`. Ruff (line length 120) lints with `E,W,F,I,B,C4,UP,SIM`.
+
+## Specification chapters
+
+The full design lives in `spec/00-toc.md` plus `spec/01.md` … `spec/12.md`. The implemented code follows it partially today (the zone engine, the provider protocol, and the Cloudflare adapter are done; the broader write/migration and delegation workflows are specified but not yet exposed).
+
+| Chapter | Title                                 | TL;DR                                                                                                                                                                                                                                                                        |
+| ------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01      | Vision and Scope                      | A zone-file-first CLI for DNS zones, provider records, and registrar delegation — an audit/migration/backup/sync tool, not a magic layer. The first release scaffolds the registry and ships the local engine + verified adapters only.                                      |
+| 02      | Domain Model                          | Zones, records, providers, capabilities, credentials, sync plans, verification results. Provider-neutral record model; capability checks fail early; plans are the unit of review.                                                                                           |
+| 03      | Zone File Engine                      | `dnspython` is the authoritative parser/serializer. Require an origin when it can't be inferred; normalize names/TTLs/classes; stable serialization; explicit SOA-serial handling; diff produces a plan with conflicts surfaced as warnings/errors.                          |
+| 04      | Provider Architecture                 | One module per provider, explicit capabilities, small adapter surface. API behavior must be confirmed against official docs before live writes; researched placeholders may exist but must not claim tested write support.                                                   |
+| 05      | Credential and Configuration Model    | Credentials from env vars or ignored local config; never committed/printed/logged. Each adapter declares its credential names; missing credentials fail before network calls; redaction is tested.                                                                           |
+| 06      | CLI Experience                        | Fire-based, discoverable commands mapping to common workflows. Output names the files/providers/zones involved; dry-run/plan output is human-readable; write commands need explicit confirmation.                                                                            |
+| 07      | Read, Export, and Dump Workflows      | Read provider state and dump it to stable BIND zone files for backup/audit/migration. Prefer native zone export when complete and documented, then re-validate it through the same engine.                                                                                   |
+| 08      | Write, Import, and Sync Workflows     | Writes are plan-first: read local + provider state, compute creates/updates/deletes/no-ops/warnings, block unsafe changes by default, then apply in a safe order; export-before-import for native importers; idempotent re-applies.                                          |
+| 09      | Nameserver and Registrar Workflows    | Delegation is a registrar/parent-zone concern — editing zone-file NS records is *not* sufficient. A reassignment plan reads current NS, validates target syntax/glue, updates via the domain API, then verifies via RDAP/WHOIS/DNS. DNS-only providers refuse registrar ops. |
+| 10      | Safety, Validation, and Observability | Validate before writes, dry-run for destructive ops, block unsupported capabilities, confirm unsafe changes; categorize provider errors; redact secrets; verification failures must not look like successful applies.                                                        |
+| 11      | Testing Strategy                      | Deterministic local zone tests → mocked provider contract tests (auth, bodies, pagination, errors, rate limits, idempotency) → opt-in, gated live tests on disposable zones.                                                                                                 |
+| 12      | Implementation Roadmap                | Build in safety-first slices: scaffold → zone engine → provider protocols → high-confidence providers (Cloudflare, IONOS, Joker, Route 53, DNSimple, one DNS-only) → migration/delegation → provider expansion. Each phase leaves a working CLI and passing tests.           |
+
+## See also
+
+- [Providers](https://github.com/twardoch/donazopy/providers/index.md) — the provider model in detail and how to add one.
+- [Zone files](https://github.com/twardoch/donazopy/zonefiles/index.md) — the zone engine.
+- [Contributing](https://github.com/twardoch/donazopy/contributing/index.md) — the development workflow.
+
+# Contributing
+
+donazopy is a small, deliberately conservative codebase. Contributions are welcome — the bar is: real behavior, real tests, no secrets, no stubs that pretend to work.
+
+## Development setup
+
+```bash
+git clone https://github.com/twardoch/donazopy.git
+cd donazopy
+uv sync          # creates .venv/ and installs locked deps
+uv run donazopy version
+```
+
+Use `uv add <package>` for new runtime dependencies (never bare `pip`). Docs-only dependencies go in the `docs` dependency group (see [docs build](#building-the-docs)).
+
+## Running the test suite
+
+```bash
+uvx hatch test                 # the canonical test command
+# or:
+uv run pytest -q
+```
+
+Tests must run **without network access** — provider tests use mocked HTTP. Any live integration test must be opt-in via an explicit environment variable and use disposable test zones; it must never run by default.
+
+## Lint, format, and type-check
+
+```bash
+uvx ruff format .                                  # format
+uvx ruff check . --fix                             # lint (E,W,F,I,B,C4,UP,SIM)
+uvx mypy src tests                                 # strict typing
+# Pyright is also configured (standard mode over src + tests).
+python -m compileall src tests                     # quick smoke compile
+```
+
+`ruff` is configured with line length 120 (E501 ignored). `mypy` runs in `--strict` mode; tests relax `disallow_untyped_defs`.
+
+## Code conventions
+
+- **`this_file:` marker.** Every source file starts with a marker giving its path relative to the project root, no leading `./`:
+- Python: `# this_file: src/donazopy/providers/cloudflare.py`
+- Markdown: a YAML frontmatter `this_file:` key.
+- YAML config: `# this_file: mkdocs/mkdocs.yml` Update it if you move the file.
+- **Naming:** `snake_case` for modules/functions/variables, `PascalCase` for classes. Provider modules are named after the provider in lowercase (`cloudflare.py`, `google_cloud.py`).
+- **Boundaries:** parse raw input into typed values at the edge (dataclasses, `dnspython` records); keep the interior typed. Raise typed exceptions (`TargetError`, `ZoneFileError`, `ProviderError` and friends) at the boundary.
+- **Provider isolation:** all provider-specific logic lives in `src/donazopy/providers/<key>.py` plus the registry wiring. Nothing else should import provider internals.
+- **No secrets, ever:** don't commit `.env`, `.pypirc`, tokens, or private research. Don't print credential values. Status output is redacted by design — keep it that way.
+- **Keep it small:** Python 3.12+, type hints in their simplest form (`list`, `dict`, `|` unions), `pathlib`, concise functions, explicit failure handling. Prefer well-maintained packages over hand-rolled utilities.
+
+## Test naming
+
+Tests live under `tests/` mirroring `src/`:
+
+- Files: `test_<module>.py` (e.g. `test_zonefile.py`).
+- Functions: `test_<function>_when_<condition>_then_<result>`.
+
+Cover the normal path **and** the edges: empty input, invalid DNS data, missing credentials, API errors, provider-specific quirks, and the safe-write "refuse to overwrite" behavior. Add helpful assertion messages.
+
+## Adding a provider
+
+See [Providers → Adding a new provider](https://github.com/twardoch/donazopy/providers/#adding-a-new-provider) for the full checklist. In short: read the official API docs, write a module with a `ProviderSpec`, implement an adapter satisfying `DNSHostingProvider` / `RegistrarProvider`, register it in `providers/registry.py`, add mocked HTTP tests — and only then is it "operational". Update `CHANGELOG.md` (move completed `TODO.md` items into it) once verified.
+
+## Building the docs
+
+The documentation site is built with `properdocs` (a thin MkDocs successor) and the `mkdocs-materialx` theme. Sources are in `src_docs/md/`, the config is `mkdocs/mkdocs.yml`, the compiled site is in `docs/`.
+
+```bash
+./docs.sh           # build into docs/
+./docs.sh serve     # live preview at http://127.0.0.1:8000/
+./docs.sh --help    # any other args pass straight through to the build tool
+```
+
+`docs.sh` runs the build via `uv run --group docs`, so the docs-only dependencies (declared in the `docs` group of `pyproject.toml`) are fetched on demand and don't affect a normal `uv sync`.
+
+When you change a doc page, keep the `this_file:` frontmatter key correct and re-run `./docs.sh` to verify it still builds cleanly.
+
+## Commits and pull requests
+
+- Keep commits short and imperative: `Add Cloudflare zone export`, `Fix target parsing for absolute paths`.
+- A PR should: describe the change; list the verification commands you ran (`uvx hatch test`, `uvx ruff check .`, `./docs.sh`, …); note any provider/API assumptions; and link the related issue or spec chapter.
+- Include CLI output examples when behavior changes.
+- Don't enable a provider's live-write support without official-docs confirmation and mocked tests.
+
+## See also
+
+- [Architecture](https://github.com/twardoch/donazopy/architecture/index.md) — package layout and conventions.
+- [Providers](https://github.com/twardoch/donazopy/providers/index.md) — the provider model.
+- [Zone files](https://github.com/twardoch/donazopy/zonefiles/index.md) — the local engine.
+
+# Changelog
+
+The authoritative, always-current changelog lives in the repository: [`CHANGELOG.md`](https://github.com/twardoch/donazopy/blob/main/CHANGELOG.md). It follows [Keep a Changelog](https://keepachangelog.com/), and the project uses git-tag-derived semantic versions via `hatch-vcs`.
+
+## Highlights so far
+
+### Unreleased / current
+
+**Added**
+
+- Initial Hatch/uv Python package scaffold for `donazopy`.
+- Fire-based CLI: version reporting, provider listing, provider information, redacted credential status, zone validation, zone normalization, zone dump, and zone diff planning.
+- `python-dotenv` credential loading from discovered or explicit `.env` files, with real environment variables taking precedence; redacted status output that reports presence and source but never secret values.
+- Operational **Cloudflare** DNS support: record listing, native BIND zone export, BIND zone import, and assigned-nameserver reads.
+- Zone-file engine on `dnspython`: parsing, validation, normalization, deterministic dump, safe output writing (no overwrite without an explicit flag), and before/after diffing.
+- The 12-chapter project specification under `spec/`, and the implementation task list in `TODO.md`.
+- Build and publish scripts; this documentation site (ProtoDocs + MaterialX, sources in `src_docs/`, compiled into `docs/`).
+- Pyright configuration and tests for package metadata, the operational provider registry, CLI metadata, zone validation/normalization/diffing, dotenv credential redaction, and Cloudflare API operations with mocked HTTP.
+
+**Changed**
+
+- The runtime provider registry is limited to *functional* operational providers; Cloudflare is currently the only one exposed.
+- The README is a focused user/developer guide covering dotenv credentials, local zone commands, Cloudflare operations, and the safety model.
+- Package metadata corrected to the Apache Software License classifier.
+
+**Removed**
+
+- Provider dry-run-plan and adapter-stub surfaces that advertised behavior without performing real operations.
+- Nonfunctional providers from the runtime provider list (they remain documented in `spec/` and tracked in `TODO.md`).
+
+______________________________________________________________________
+
+For the complete, line-by-line history, see the repository [`CHANGELOG.md`](https://github.com/twardoch/donazopy/blob/main/CHANGELOG.md).

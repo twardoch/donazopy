@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
@@ -163,9 +164,55 @@ def records_from_zone_file(path: Path, origin: str | None = None) -> tuple[Norma
     return records_from_zone(parse_zone_file(path, origin))
 
 
+def records_from_zone_text(text: str, origin: str) -> tuple[NormalizedRecord, ...]:
+    """Parse zone text and return normalized records."""
+    return records_from_zone(parse_zone_text(text, origin))
+
+
 def normalize_zone_text(text: str, origin: str) -> str:
     """Parse zone text and return canonical BIND-style record lines."""
     return serialize_records(records_from_zone(parse_zone_text(text, origin)))
+
+
+def filter_records(
+    records: Iterable[NormalizedRecord],
+    *,
+    skip_ns: bool = False,
+    skip_types: Iterable[str] = (),
+) -> tuple[NormalizedRecord, ...]:
+    """Drop NS records (except the apex SOA stays) and records of skipped types.
+
+    Args:
+        records: normalized records to filter.
+        skip_ns: when true, drop NS records. The apex SOA record is never dropped.
+        skip_types: record types (case-insensitive) to drop entirely.
+    """
+    skip_upper = {record_type.strip().upper() for record_type in skip_types if record_type.strip()}
+    kept: list[NormalizedRecord] = []
+    for record in records:
+        record_type = record.record_type.upper()
+        if record_type == "SOA":
+            kept.append(record)
+            continue
+        if skip_ns and record_type == "NS":
+            continue
+        if record_type in skip_upper:
+            continue
+        kept.append(record)
+    return tuple(kept)
+
+
+def filter_zone_text(
+    text: str,
+    origin: str,
+    *,
+    skip_ns: bool = False,
+    skip_types: Iterable[str] = (),
+) -> str:
+    """Parse BIND zone text, apply NS/type filters, and return canonical BIND text."""
+    records = records_from_zone(parse_zone_text(text, origin))
+    filtered = filter_records(records, skip_ns=skip_ns, skip_types=skip_types)
+    return serialize_records(tuple(sorted(filtered)))
 
 
 def normalize_zone_file(path: Path, origin: str | None = None) -> str:
@@ -217,9 +264,7 @@ def diff_zone_records(before: tuple[NormalizedRecord, ...], after: tuple[Normali
         after_group = after_by_identity.get(identity, [])
         if before_group and after_group:
             max_pairs = min(len(before_group), len(after_group))
-            updates.extend(
-                ZoneChange("update", before_group[index], after_group[index]) for index in range(max_pairs)
-            )
+            updates.extend(ZoneChange("update", before_group[index], after_group[index]) for index in range(max_pairs))
             deletes.extend(ZoneChange("delete", record, None) for record in before_group[max_pairs:])
             creates.extend(ZoneChange("create", None, record) for record in after_group[max_pairs:])
         elif before_group:

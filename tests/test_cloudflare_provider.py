@@ -105,3 +105,76 @@ def test_cloudflare_error_when_api_returns_error_then_raises_message() -> None:
 
     with pytest.raises(ProviderAPIError, match="permission denied"):
         provider.export_zone("example.com")
+
+
+def test_delete_all_records_when_records_exist_then_deletes_each_and_counts() -> None:
+    deleted: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/client/v4/zones":
+            return httpx.Response(200, json=zone_payload())
+        if request.url.path == "/client/v4/zones/zone-id/dns_records" and request.method == "GET":
+            return httpx.Response(
+                200,
+                json={
+                    "success": True,
+                    "result": [
+                        {"id": "record-1", "type": "A", "name": "www.example.com", "content": "192.0.2.1"},
+                        {"id": "record-2", "type": "TXT", "name": "example.com", "content": "hello"},
+                        {"id": "record-3", "type": "NS", "name": "example.com", "content": "ns.cloudflare.com"},
+                    ],
+                    "result_info": {"total_pages": 1},
+                },
+            )
+        if request.url.path.startswith("/client/v4/zones/zone-id/dns_records/") and request.method == "DELETE":
+            record_id = request.url.path.rsplit("/", 1)[-1]
+            if record_id == "record-3":
+                return httpx.Response(400, json={"success": False, "errors": [{"message": "cannot delete NS"}]})
+            deleted.append(record_id)
+            return httpx.Response(200, json={"success": True, "result": {"id": record_id}})
+        return httpx.Response(404, json={"success": False, "errors": [{"message": "not found"}]})
+
+    provider = CloudflareProvider({"CLOUDFLARE_API_TOKEN": "token"}, client=make_cloudflare_client(handler))
+
+    result = provider.delete_all_records("example.com")
+
+    assert sorted(deleted) == ["record-1", "record-2"]
+    assert result == {"deleted": 2, "failed": 1}
+
+
+def test_assign_nameservers_when_called_then_raises_unsupported() -> None:
+    provider = CloudflareProvider(
+        {"CLOUDFLARE_API_TOKEN": "token"},
+        client=make_cloudflare_client(lambda request: httpx.Response(404)),
+    )
+
+    with pytest.raises(ProviderAPIError, match="not supported"):
+        provider.assign_nameservers("example.com", ["a.iana-servers.net", "b.iana-servers.net"])
+
+
+def test_list_zones_when_multiple_pages_then_returns_all_names() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/client/v4/zones":
+            page = request.url.params.get("page")
+            if page == "1":
+                return httpx.Response(
+                    200,
+                    json={
+                        "success": True,
+                        "result": [{"id": "a", "name": "alpha.example"}],
+                        "result_info": {"total_pages": 2},
+                    },
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "success": True,
+                    "result": [{"id": "b", "name": "beta.example"}],
+                    "result_info": {"total_pages": 2},
+                },
+            )
+        return httpx.Response(404)
+
+    provider = CloudflareProvider({"CLOUDFLARE_API_TOKEN": "token"}, client=make_cloudflare_client(handler))
+
+    assert provider.list_zones() == ["alpha.example", "beta.example"]

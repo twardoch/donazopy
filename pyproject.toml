@@ -36,6 +36,18 @@ Issues = "https://github.com/twardoch/donazopy/issues"
 [project.scripts]
 donazopy = "donazopy.__main__:main"
 
+[dependency-groups]
+# Documentation toolchain (ProtoDocs / properdocs + the MaterialX theme).
+# Not part of the runtime install; fetched on demand by ./docs.sh via
+# `uv run --group docs`.
+docs = [
+    "properdocs>=1.6.7",
+    "mkdocs-materialx>=10.1.4",
+    "pymdown-extensions>=10.2",
+    "mkdocs-include-markdown-plugin>=7.2",
+    "mkdocs-llmstxt>=0.2",
+]
+
 [tool.hatch.version]
 source = "vcs"
 

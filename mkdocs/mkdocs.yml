@@ -1,0 +1,109 @@
+# this_file: mkdocs/mkdocs.yml
+
+site_name: donazopy
+site_description: A focused Python CLI for local DNS zone-file work and real, tested DNS-provider operations.
+site_url: https://github.com/twardoch/donazopy
+site_author: Adam Twardoch
+copyright: Copyright © 2025–2026 Adam Twardoch. Licensed under Apache-2.0.
+
+# Source Markdown lives in ../src_docs/md/; built HTML lands in ../docs/.
+# Paths are resolved relative to this mkdocs.yml file.
+docs_dir: ../src_docs/md/
+site_dir: ../docs/
+
+use_directory_urls: true
+
+theme:
+  name: materialx
+  features:
+    - navigation.top
+    - navigation.sections
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+  palette:
+    - scheme: default
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+extra:
+  generator: false
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Quick start: quickstart.md
+  - CLI reference: cli.md
+  - Target notation: targets.md
+  - Providers: providers.md
+  - Zone files: zonefiles.md
+  - Architecture: architecture.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink
+  - pymdownx.mark
+  - pymdownx.snippets:
+      base_path: [../src_docs/_partials]
+      check_paths: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+plugins:
+  - search
+  - include-markdown:
+      opening_tag: "{!"
+      closing_tag: "!}"
+  - llmstxt:
+      markdown_description: A focused Python CLI for local DNS zone-file work and real, tested DNS-provider operations.
+      full_output: llms-full.txt
+      sections:
+        Overview:
+          - index.md: What donazopy is and which workflows it supports.
+          - installation.md: Installing and setting up donazopy for use and development.
+          - quickstart.md: A guided walkthrough of the core commands.
+        Reference:
+          - cli.md: Full reference for every CLI command.
+          - targets.md: The unified target notation grammar.
+          - providers.md: The provider model and per-provider status.
+          - zonefiles.md: BIND zone-file parsing, validation, normalization, and diffing.
+        Project:
+          - architecture.md: Package layout, data flow, and the spec chapters.
+          - contributing.md: Development workflow and contribution guidelines.
+          - changelog.md: Release notes.
+
+extra_css:
+  - css/extra.css

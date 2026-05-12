@@ -1,92 +1,143 @@
 # donazopy
 
-`donazopy` is a focused Python CLI for local DNS zone-file work and real provider operations that are implemented and tested.
+> **Pre-release / pre-alpha.** The command surface changed in this revision (issue 203) — old commands have been removed and replaced with a unified target notation.
 
-The project currently supports two useful workflows:
+`donazopy` is a focused Python CLI for local DNS zone-file work and real provider operations.
 
-1. Local BIND-style zone files: validate, normalize/dump, safely write normalized output, and compare two zones as a change summary.
-2. Cloudflare DNS zones: load credentials from `.env` or environment variables, list DNS records, export a Cloudflare zone as BIND text, import BIND zone text into Cloudflare, and read Cloudflare-assigned nameservers.
+Supported workflows:
 
-Other providers are documented in `spec/` and tracked in `TODO.md`, but they are not exposed as functional CLI providers until they have real adapters and tests.
+1. **Local zone files** — validate, normalize, compare two zones as a change summary.
+2. **Provider DNS** — load credentials from `.env` or environment, list/export/import records, copy zones between providers, read/assign nameservers, diff a live zone against a file.
 
-## Installation for development
+Only Cloudflare is functional today. Other providers are tracked in `TODO.md`.
+
+## Installation
 
 ```bash
 uv sync
 ```
 
-The package targets Python 3.12+ and uses Hatch plus `hatch-vcs` for git-tag-derived versions.
+Python 3.12+, Hatch + `hatch-vcs` for git-tag-derived versions.
 
 ## Credentials
 
-Provider credentials are loaded with [`python-dotenv`](https://pypi.org/project/python-dotenv/):
+Credentials are loaded with [`python-dotenv`](https://pypi.org/project/python-dotenv/):
 
-- `donazopy` discovers a local `.env` from the current working directory.
-- You can pass an explicit `.env` file with `--dotenv-path=path/to/.env`.
+- `donazopy` auto-discovers `.env` from the current working directory.
+- Pass an explicit file with `--dotenv-path=path/to/.env`.
 - Real environment variables override `.env` values.
-- CLI status output only reports presence and source; it never prints secret values.
+- Status output shows presence and source only — secret values are never printed.
 
-For Cloudflare, create an ignored `.env` file like:
+For Cloudflare create an ignored `.env`:
 
 ```dotenv
 CLOUDFLARE_API_TOKEN=your-token
 ```
 
-The token needs permissions for the operation you run, such as DNS read for record listing/export and DNS edit for imports.
+The token needs DNS Read for listing/export and DNS Edit for import/copy.
+
+## Target notation
+
+Most commands accept a `TARGET` argument using the notation:
+
+```
+[provider/][domain][:record_type][:host_name][:value]
+```
+
+| Example | Meaning |
+| --- | --- |
+| `example.com` | that domain on whichever sole operational provider manages it |
+| `cloudflare/example.com` | `example.com` on Cloudflare specifically |
+| `cloudflare/*` | all domains on Cloudflare |
+| `cloudflare/example.com:A` | A records for `example.com` |
+| `cloudflare/example.com:A:www:1.2.3.4` | filtered to a specific host and value |
+| `example.com.zone` | a local zone file (resolved by extension / path heuristics) |
+
+`*` in any filter segment means "no filter". A trailing `:TYPE:host:value` tuple is optional and defaults to no filtering.
 
 ## Quick start
 
-List operational providers:
-
 ```bash
+# Tool version and operational providers
+uv run donazopy version
 uv run donazopy providers
-# ['cloudflare']
+
+# Provider metadata and credential status
+uv run donazopy status
+uv run donazopy status cloudflare
+uv run donazopy status cloudflare/example.com --dotenv-path=.env
+
+# DNS records (with optional record-level filters)
+uv run donazopy records cloudflare/example.com --dotenv-path=.env
+uv run donazopy records cloudflare/example.com:A --dotenv-path=.env
+
+# Export a live zone as BIND text
+uv run donazopy export cloudflare/example.com --dotenv-path=.env
+uv run donazopy export cloudflare/example.com --output=example.com.zone --overwrite --skip-ns
+
+# Import BIND zone text into a provider
+uv run donazopy import-zone cloudflare/example.com example.com.zone --dotenv-path=.env
+
+# Copy a zone from one provider target to another
+uv run donazopy copy cloudflare/example.com cloudflare/example-staging.com --skip-ns
+uv run donazopy copy cloudflare/example.com cloudflare/example.com --replace  # wipe dest first
+
+# Read or assign nameservers
+uv run donazopy nameservers cloudflare/example.com --dotenv-path=.env
+uv run donazopy nameservers cloudflare/example.com ns1.example.net ns2.example.net
+
+# Validate and normalize a local zone file
+uv run donazopy validate example.com.zone --origin=example.com.
+uv run donazopy normalize example.com.zone --origin=example.com.
+uv run donazopy normalize example.com.zone --output=normalized.zone --overwrite
+
+# Diff two zones — each side can be a file path or a provider target
+uv run donazopy diff before.zone after.zone --origin=example.com.
+uv run donazopy diff cloudflare/example.com example.com.zone
 ```
 
-Inspect Cloudflare metadata and credential status:
+## Command reference
 
-```bash
-uv run donazopy provider cloudflare
-uv run donazopy provider-status cloudflare --dotenv-path=.env
-```
-
-Validate and normalize a zone file:
-
-```bash
-uv run donazopy validate-zone example.zone --origin=example.com.
-uv run donazopy zone-normalize example.zone --origin=example.com.
-uv run donazopy zone-normalize example.zone --origin=example.com. --output=normalized.zone --overwrite
-```
-
-Compare two zone files:
-
-```bash
-uv run donazopy zone-diff before.zone after.zone --origin=example.com.
-```
-
-Use Cloudflare DNS operations:
-
-```bash
-uv run donazopy provider-records cloudflare example.com --dotenv-path=.env
-uv run donazopy provider-export-zone cloudflare example.com --dotenv-path=.env --output=example.com.zone --overwrite
-uv run donazopy provider-import-zone cloudflare example.com example.com.zone --dotenv-path=.env
-uv run donazopy provider-nameservers cloudflare example.com --dotenv-path=.env
-```
+| Command | Description |
+| --- | --- |
+| `donazopy version` | Print installed version |
+| `donazopy providers` | List operational provider keys |
+| `donazopy status [TARGET] [--dotenv-path=PATH]` | Provider metadata + credential status |
+| `donazopy records TARGET [--dotenv-path=PATH]` | List DNS records (target may include record filters) |
+| `donazopy export TARGET [--output=PATH] [--overwrite] [--skip-ns] [--skip-types=A,AAAA,...] [--dotenv-path=PATH]` | Export zone as BIND text |
+| `donazopy import-zone TARGET PATH [--proxied] [--dotenv-path=PATH]` | Import BIND zone file into provider |
+| `donazopy copy SOURCE DEST [--skip-ns] [--skip-types=...] [--replace] [--dotenv-path=PATH]` | Copy zone between provider targets |
+| `donazopy nameservers TARGET [NS1 NS2 ...] [--dotenv-path=PATH]` | Read or assign nameservers |
+| `donazopy diff A B [--origin=...] [--dotenv-path=PATH]` | Diff two zones (file paths or provider targets) |
+| `donazopy validate PATH [--origin=...]` | Validate a local BIND zone file |
+| `donazopy normalize PATH [--origin=...] [--output=PATH] [--overwrite]` | Normalize a local BIND zone file |
 
 ## Provider matrix
 
-| Provider | Functional status |
+| Provider | Status |
 | --- | --- |
-| Cloudflare | Implemented for DNS record listing, BIND zone export/import, credential status, and assigned nameserver reads. |
-| IONOS, Joker, AWS Route 53, Google Cloud DNS, Azure DNS, Namecheap, GoDaddy, DNSimple, Gandi, Porkbun, Dynadot, Vercel, DigitalOcean, Hetzner, Linode, Vultr, Hosting.com, Hostinger, Bluehost | Planned only. Not exposed as operational providers until real adapters and mocked/live tests are added. |
+| Cloudflare | Implemented: record listing, BIND export/import, zone copy, nameserver read, credential status. |
+| IONOS, Joker, AWS Route 53, Google Cloud DNS, Azure DNS, Namecheap, GoDaddy, DNSimple, Gandi, Porkbun, Dynadot, Vercel, DigitalOcean, Hetzner, Linode, Vultr, Hosting.com, Hostinger, Bluehost | Planned only — not exposed until real adapters and tests exist. |
 
 ## Safety model
 
 - Zone-file operations are local and deterministic.
 - Output writes refuse to overwrite existing files unless `--overwrite` is passed.
-- Provider credentials are loaded through `python-dotenv` and environment variables, then redacted in status output.
-- Unsupported providers are not exposed by `donazopy providers`; this avoids placeholder/stub behavior.
-- Destructive provider work must be backed by tests, clear CLI commands, and credential redaction before it is exposed.
+- `copy --replace` deletes all destination records before importing; use with care.
+- Credentials are loaded through `python-dotenv` and environment variables, then redacted in status output.
+- Unsupported providers are not exposed by `donazopy providers`.
+- `assign_nameservers` via Cloudflare raises a clear "not supported" error (the Cloudflare DNS API cannot set registrar delegation; use a registrar-capable provider when that feature lands).
+
+## Documentation
+
+Full docs are built from `src_docs/md/` with MkDocs + ProtoDocs + MaterialX:
+
+```bash
+./docs.sh serve   # live preview at http://127.0.0.1:8000
+./docs.sh build   # write static output to docs/
+```
+
+Config: `mkdocs/mkdocs.yml`. Pre-built output is committed to `docs/`.
 
 ## Development commands
 

@@ -1,0 +1,28 @@
+/* this_file: src_docs/md/css/extra.css */
+/* Small typography and code-block tweaks for the donazopy docs. */
+
+:root {
+  --md-code-font: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+.md-typeset pre > code {
+  border-radius: 6px;
+}
+
+.md-typeset code {
+  font-size: 0.84em;
+}
+
+.md-typeset table:not([class]) {
+  font-size: 0.78rem;
+}
+
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 6px;
+}
+
+/* Slightly tighter heading rhythm for a docs site. */
+.md-typeset h2 {
+  margin-top: 1.8em;
+}

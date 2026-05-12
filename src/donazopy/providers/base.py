@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
@@ -76,12 +76,33 @@ class DNSHostingProvider(Protocol):
 
     def list_records(self, domain: str) -> list[Mapping[str, object]]: ...
 
+    def delete_all_records(self, domain: str) -> Mapping[str, object]:
+        """Delete every deletable record in a zone.
+
+        Implementations that cannot do this should raise :class:`ProviderAPIError`.
+        """
+        ...
+
+    def list_zones(self) -> list[str]:
+        """Return all zone names hosted by the provider.
+
+        Implementations that cannot enumerate zones should raise :class:`ProviderAPIError`.
+        """
+        ...
+
 
 @runtime_checkable
 class RegistrarProvider(Protocol):
     spec: ProviderSpec
 
     def read_nameservers(self, domain: str) -> tuple[str, ...]: ...
+
+    def assign_nameservers(self, domain: str, nameservers: Sequence[str]) -> Mapping[str, object]:
+        """Set registrar nameserver delegation for a domain.
+
+        Implementations that cannot do this should raise :class:`ProviderAPIError`.
+        """
+        ...
 
 
 def dotenv_environment(
@@ -137,7 +158,9 @@ def credential_status(
     present = tuple(name for name in spec.credentials if name in credentials)
     missing = tuple(name for name in spec.credentials if name not in credentials)
     sources = {name: loaded.sources[name] for name in present if name in loaded.sources}
-    return CredentialStatus(provider_key=spec.key, required=spec.credentials, present=present, missing=missing, sources=sources)
+    return CredentialStatus(
+        provider_key=spec.key, required=spec.credentials, present=present, missing=missing, sources=sources
+    )
 
 
 def require_provider_credentials(

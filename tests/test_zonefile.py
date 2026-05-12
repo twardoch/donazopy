@@ -7,8 +7,11 @@ import pytest
 from donazopy.zonefile import (
     ZoneFileError,
     diff_zone_files,
+    filter_records,
+    filter_zone_text,
     normalize_zone_file,
     records_from_zone_file,
+    records_from_zone_text,
     write_text_safely,
 )
 
@@ -72,6 +75,39 @@ def test_diff_zone_files_when_records_change_then_groups_safe_plan(tmp_path: Pat
     assert diff.updates[0].before.owner == "www.example.com."
     assert diff.deletes[0].before is not None
     assert diff.deletes[0].before.owner == "old.example.com."
+
+
+def test_filter_zone_text_when_skip_ns_then_drops_ns_but_keeps_soa() -> None:
+    result = filter_zone_text(BEFORE_ZONE, "example.com.", skip_ns=True)
+
+    assert " NS " not in result
+    assert " SOA " in result
+    assert "www.example.com. 3600 IN A 192.0.2.20" in result
+
+
+def test_filter_zone_text_when_skip_types_then_drops_those_types() -> None:
+    result = filter_zone_text(BEFORE_ZONE, "example.com.", skip_types=["txt"])
+
+    assert " TXT " not in result
+    assert "ns1.example.com. 3600 IN A 192.0.2.10" in result
+
+
+def test_filter_records_when_skip_ns_and_types_then_filters() -> None:
+    records = records_from_zone_text(BEFORE_ZONE, "example.com.")
+
+    filtered = filter_records(records, skip_ns=True, skip_types=["A"])
+    types = {record.record_type for record in filtered}
+
+    assert "NS" not in types
+    assert "A" not in types
+    assert "SOA" in types
+    assert "TXT" in types
+
+
+def test_records_from_zone_text_when_valid_then_returns_records() -> None:
+    records = records_from_zone_text(BEFORE_ZONE, "example.com.")
+
+    assert any(record.owner == "www.example.com." and record.record_type == "A" for record in records)
 
 
 def test_write_text_safely_when_target_exists_without_overwrite_then_raises(tmp_path: Path) -> None:

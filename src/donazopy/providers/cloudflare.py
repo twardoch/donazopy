@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 import httpx
 
@@ -76,6 +76,51 @@ class CloudflareProvider:
         if not isinstance(nameservers, list):
             return ()
         return tuple(str(nameserver) for nameserver in nameservers)
+
+    def assign_nameservers(self, domain: str, nameservers: Sequence[str]) -> Mapping[str, object]:
+        msg = (
+            "nameserver assignment is not supported by the Cloudflare adapter: the "
+            "Cloudflare DNS API cannot set registrar delegation for a zone. Update the "
+            f"delegation for {domain!r} at the registrar that holds the domain. "
+            "Use the 'nameservers' command without arguments to read Cloudflare's "
+            "assigned nameservers."
+        )
+        raise ProviderAPIError(msg)
+
+    def list_zones(self) -> list[str]:
+        names: list[str] = []
+        page = 1
+        while True:
+            payload = self._request("GET", "/zones", params={"page": page, "per_page": 50})
+            result = payload.get("result", [])
+            if not isinstance(result, list):
+                raise ProviderAPIError("Cloudflare zones response did not contain a result list")
+            names.extend(str(zone["name"]) for zone in result if isinstance(zone, dict) and zone.get("name"))
+            info = payload.get("result_info", {})
+            if not isinstance(info, dict) or page >= int(info.get("total_pages", 1)):
+                break
+            page += 1
+        return names
+
+    def delete_all_records(self, domain: str) -> Mapping[str, object]:
+        zone = self._zone(domain)
+        zone_id = zone["id"]
+        deleted = 0
+        failed = 0
+        for record in self.list_records(domain):
+            record_id = record.get("id")
+            if not record_id:
+                continue
+            response = self._client.request(
+                "DELETE",
+                f"{self.api_base}/zones/{zone_id}/dns_records/{record_id}",
+                headers=self._headers,
+            )
+            if response.status_code >= 400:
+                failed += 1
+                continue
+            deleted += 1
+        return {"deleted": deleted, "failed": failed}
 
     def _zone(self, domain: str) -> Mapping[str, object]:
         name = domain.rstrip(".")
