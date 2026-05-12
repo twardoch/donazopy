@@ -92,7 +92,8 @@ uv run donazopy copy cloudflare/example.com cloudflare/example.com --replace  # 
 
 # Read or assign nameservers
 uv run donazopy nameservers cloudflare/example.com --dotenv-path=.env
-uv run donazopy nameservers cloudflare/example.com ns1.example.net ns2.example.net
+uv run donazopy nameservers godaddy/* --dotenv-path=.env          # {domain: [nameserver, ...]} for every domain
+uv run donazopy nameservers godaddy/example.com ns1.example.net ns2.example.net   # assign (GoDaddy/Joker only)
 
 # Validate and normalize a local zone file
 uv run donazopy validate example.com.zone --origin=example.com.
