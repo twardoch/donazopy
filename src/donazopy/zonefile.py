@@ -1,0 +1,250 @@
+# this_file: src/donazopy/zonefile.py
+"""Zone-file parsing, validation, normalization, and diff helpers."""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Literal
+
+import dns.exception
+import dns.name
+import dns.rdata
+import dns.rdataclass
+import dns.rdatatype
+import dns.zone
+
+ZoneChangeKind = Literal["create", "update", "delete", "unchanged"]
+
+
+class ZoneFileError(ValueError):
+    pass
+
+
+@dataclass(frozen=True, order=True)
+class NormalizedRecord:
+    """Canonical representation of one DNS record from a zone file."""
+
+    owner: str
+    ttl: int
+    record_class: str
+    record_type: str
+    value: str
+    source_order: int
+
+    @property
+    def identity(self) -> tuple[str, str, str]:
+        """Return the identity used to detect record updates."""
+        return (self.owner, self.record_class, self.record_type)
+
+    @property
+    def exact_key(self) -> tuple[str, int, str, str, str]:
+        """Return the full key used to detect unchanged records."""
+        return (self.owner, self.ttl, self.record_class, self.record_type, self.value)
+
+    def to_zone_line(self) -> str:
+        """Serialize the normalized record to a stable BIND-style line."""
+        return f"{self.owner} {self.ttl} {self.record_class} {self.record_type} {self.value}"
+
+    def to_dict(self) -> dict[str, str | int]:
+        """Return a JSON-serializable mapping."""
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class ZoneChange:
+    """One diff entry between two normalized zones."""
+
+    kind: ZoneChangeKind
+    before: NormalizedRecord | None
+    after: NormalizedRecord | None
+
+    def to_dict(self) -> dict[str, object]:
+        """Return a JSON-serializable mapping."""
+        return {
+            "kind": self.kind,
+            "before": None if self.before is None else self.before.to_dict(),
+            "after": None if self.after is None else self.after.to_dict(),
+        }
+
+
+@dataclass(frozen=True)
+class ZoneDiff:
+    """A complete create/update/delete/unchanged plan for two zones."""
+
+    creates: tuple[ZoneChange, ...]
+    updates: tuple[ZoneChange, ...]
+    deletes: tuple[ZoneChange, ...]
+    unchanged: tuple[ZoneChange, ...]
+
+    def to_dict(self) -> dict[str, list[dict[str, object]]]:
+        """Return a JSON-serializable diff grouped by change kind."""
+        return {
+            "creates": [change.to_dict() for change in self.creates],
+            "updates": [change.to_dict() for change in self.updates],
+            "deletes": [change.to_dict() for change in self.deletes],
+            "unchanged": [change.to_dict() for change in self.unchanged],
+        }
+
+    def summary(self) -> str:
+        """Return a compact human-readable summary."""
+        return (
+            f"creates={len(self.creates)} updates={len(self.updates)} "
+            f"deletes={len(self.deletes)} unchanged={len(self.unchanged)}"
+        )
+
+
+def parse_zone_text(text: str, origin: str, *, relativize: bool = False) -> dns.zone.Zone:
+    """Parse BIND zone text using dnspython with explicit origin handling."""
+    if not text.strip():
+        msg = "zone text is empty"
+        raise ZoneFileError(msg)
+    try:
+        zone = dns.zone.from_text(text, origin=origin, relativize=relativize, check_origin=True)
+    except dns.exception.DNSException as exc:
+        msg = f"invalid zone for {origin}: {exc}"
+        raise ZoneFileError(msg) from exc
+    return zone
+
+
+def parse_zone_file(path: Path, origin: str | None = None, *, relativize: bool = False) -> dns.zone.Zone:
+    """Parse a BIND zone file from disk."""
+    if not path.exists():
+        msg = f"zone file does not exist: {path}"
+        raise ZoneFileError(msg)
+    inferred_origin = origin or path.stem
+    return parse_zone_text(path.read_text(encoding="utf-8"), inferred_origin, relativize=relativize)
+
+
+def zone_to_text(zone: dns.zone.Zone) -> str:
+    """Serialize a parsed zone back to BIND-compatible text."""
+    return zone.to_text(relativize=False)
+
+
+def validate_zone_file(path: Path, origin: str | None = None) -> str:
+    """Validate a zone file and return a human-readable success message."""
+    zone = parse_zone_file(path, origin)
+    return f"valid zone {zone.origin}: {len(list(zone.nodes))} nodes"
+
+
+def normalize_owner_name(name: dns.name.Name, origin: dns.name.Name) -> str:
+    """Return an absolute owner name with a trailing dot."""
+    return name.derelativize(origin).to_text()
+
+
+def normalize_rdata_text(rdata: dns.rdata.Rdata, origin: dns.name.Name) -> str:
+    """Return stable text for one dnspython rdata object."""
+    try:
+        return str(rdata.to_text(origin=origin, relativize=False))
+    except TypeError:
+        return str(rdata.to_text())
+
+
+def records_from_zone(zone: dns.zone.Zone) -> tuple[NormalizedRecord, ...]:
+    """Extract stable normalized records from a parsed zone."""
+    origin = zone.origin or dns.name.root
+    records: list[NormalizedRecord] = []
+    for order, (name, ttl, rdata) in enumerate(zone.iterate_rdatas()):
+        records.append(
+            NormalizedRecord(
+                owner=normalize_owner_name(name, origin),
+                ttl=int(ttl),
+                record_class=dns.rdataclass.to_text(rdata.rdclass),
+                record_type=dns.rdatatype.to_text(rdata.rdtype),
+                value=normalize_rdata_text(rdata, origin),
+                source_order=order,
+            )
+        )
+    return tuple(sorted(records, key=lambda record: (record.owner, record.record_type, record.value, record.ttl)))
+
+
+def records_from_zone_file(path: Path, origin: str | None = None) -> tuple[NormalizedRecord, ...]:
+    """Parse a zone file and return normalized records."""
+    return records_from_zone(parse_zone_file(path, origin))
+
+
+def normalize_zone_text(text: str, origin: str) -> str:
+    """Parse zone text and return canonical BIND-style record lines."""
+    return serialize_records(records_from_zone(parse_zone_text(text, origin)))
+
+
+def normalize_zone_file(path: Path, origin: str | None = None) -> str:
+    """Parse a zone file and return canonical BIND-style record lines."""
+    return serialize_records(records_from_zone_file(path, origin))
+
+
+def dump_zone_file(path: Path, origin: str | None = None, output_path: Path | None = None) -> str:
+    """Return or safely write a canonical dump of a zone file."""
+    text = normalize_zone_file(path, origin)
+    if output_path is not None:
+        write_text_safely(output_path, text)
+    return text
+
+
+def serialize_records(records: tuple[NormalizedRecord, ...]) -> str:
+    """Serialize normalized records with deterministic ordering and final newline."""
+    lines = [record.to_zone_line() for record in records]
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
+def write_text_safely(path: Path, text: str, *, overwrite: bool = False) -> None:
+    """Write text without overwriting existing files unless explicitly allowed."""
+    if path.exists() and not overwrite:
+        msg = f"refusing to overwrite existing file without overwrite=True: {path}"
+        raise ZoneFileError(msg)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def diff_zone_records(before: tuple[NormalizedRecord, ...], after: tuple[NormalizedRecord, ...]) -> ZoneDiff:
+    """Create a safe zone change plan between two normalized record sets."""
+    before_exact = {record.exact_key: record for record in before}
+    after_exact = {record.exact_key: record for record in after}
+    unchanged_keys = set(before_exact) & set(after_exact)
+
+    before_changed = [record for record in before if record.exact_key not in unchanged_keys]
+    after_changed = [record for record in after if record.exact_key not in unchanged_keys]
+
+    before_by_identity = _group_by_identity(before_changed)
+    after_by_identity = _group_by_identity(after_changed)
+
+    updates: list[ZoneChange] = []
+    deletes: list[ZoneChange] = []
+    creates: list[ZoneChange] = []
+
+    for identity in sorted(set(before_by_identity) | set(after_by_identity)):
+        before_group = before_by_identity.get(identity, [])
+        after_group = after_by_identity.get(identity, [])
+        if before_group and after_group:
+            max_pairs = min(len(before_group), len(after_group))
+            updates.extend(
+                ZoneChange("update", before_group[index], after_group[index]) for index in range(max_pairs)
+            )
+            deletes.extend(ZoneChange("delete", record, None) for record in before_group[max_pairs:])
+            creates.extend(ZoneChange("create", None, record) for record in after_group[max_pairs:])
+        elif before_group:
+            deletes.extend(ZoneChange("delete", record, None) for record in before_group)
+        else:
+            creates.extend(ZoneChange("create", None, record) for record in after_group)
+
+    unchanged = tuple(ZoneChange("unchanged", before_exact[key], after_exact[key]) for key in sorted(unchanged_keys))
+    return ZoneDiff(
+        creates=tuple(creates),
+        updates=tuple(updates),
+        deletes=tuple(deletes),
+        unchanged=unchanged,
+    )
+
+
+def diff_zone_files(before_path: Path, after_path: Path, origin: str | None = None) -> ZoneDiff:
+    """Diff two zone files using normalized DNS records."""
+    return diff_zone_records(records_from_zone_file(before_path, origin), records_from_zone_file(after_path, origin))
+
+
+def _group_by_identity(records: list[NormalizedRecord]) -> dict[tuple[str, str, str], list[NormalizedRecord]]:
+    grouped: dict[tuple[str, str, str], list[NormalizedRecord]] = {}
+    for record in records:
+        grouped.setdefault(record.identity, []).append(record)
+    for values in grouped.values():
+        values.sort(key=lambda record: record.exact_key)
+    return grouped
