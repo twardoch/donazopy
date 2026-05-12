@@ -24,8 +24,9 @@ txt IN TXT "hello world"
 class FakeDNSProvider:
     """A minimal in-memory DNS provider for offline CLI tests."""
 
-    def __init__(self, *, zone_text: str = ZONE_TEXT) -> None:
+    def __init__(self, *, zone_text: str = ZONE_TEXT, create_supported: bool = True) -> None:
         self.zone_text = zone_text
+        self.create_supported = create_supported
         self.imported: list[tuple[str, str]] = []
         self.deleted: list[str] = []
         self.created: list[str] = []
@@ -52,6 +53,8 @@ class FakeDNSProvider:
         return ["example.com"]
 
     def create_zone(self, domain: str) -> Mapping[str, object]:
+        if not self.create_supported:
+            raise ProviderAPIError("creating zones is not supported by this fake provider")
         self.created.append(domain)
         return {"id": f"zone-{domain}", "name": domain}
 
@@ -166,17 +169,51 @@ def test_copy_when_replace_then_deletes_then_imports(cli: Donazopy, dns_provider
     assert dns_provider.deleted == ["example.com"]
     assert result["dest"]["domain"] == "example.com"
     assert result["replaced"] == {"deleted": 2, "failed": 0}
-    assert result["created"] is None
     assert result["exported_records"] > 0
     assert dns_provider.imported
 
 
-def test_copy_when_create_then_creates_dest_zone_first(cli: Donazopy, dns_provider: FakeDNSProvider) -> None:
-    result = cli.copy("cloudflare/example.com", "cloudflare/dest.example", create=True, replace=True)
+def test_copy_when_default_then_creates_dest_zone_first(cli: Donazopy, dns_provider: FakeDNSProvider) -> None:
+    result = cli.copy("cloudflare/example.com", "cloudflare/dest.example", replace=True)
 
     assert dns_provider.created == ["dest.example"]
     assert result["created"] == {"id": "zone-dest.example", "name": "dest.example"}
     assert dns_provider.imported and dns_provider.imported[0][0] == "dest.example"
+
+
+def test_copy_when_create_false_then_skips_zone_creation(cli: Donazopy, dns_provider: FakeDNSProvider) -> None:
+    result = cli.copy("cloudflare/example.com", "cloudflare/dest.example", create=False)
+
+    assert dns_provider.created == []
+    assert result["created"] is None
+
+
+def test_copy_when_dest_provider_cannot_create_zone_then_tolerated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "test-token")
+    dns_provider = FakeDNSProvider(create_supported=False)
+    cli = Donazopy(
+        dns_factory=lambda key, credentials, **_: dns_provider,
+        registrar_factory=lambda key, credentials, **_: FakeRegistrarProvider(),
+    )
+
+    result = cli.copy("cloudflare/example.com", "cloudflare/dest.example")
+
+    assert dns_provider.created == []
+    assert result["created"] is None
+    assert dns_provider.imported and dns_provider.imported[0][0] == "dest.example"
+
+
+def test_create_zone_command_when_provider_cannot_create_then_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "test-token")
+    cli = Donazopy(
+        dns_factory=lambda key, credentials, **_: FakeDNSProvider(create_supported=False),
+        registrar_factory=lambda key, credentials, **_: FakeRegistrarProvider(),
+    )
+
+    with pytest.raises(ProviderAPIError, match="not supported"):
+        cli.create_zone("cloudflare/new.example")
 
 
 def test_create_zone_command_when_called_then_creates_zone(cli: Donazopy, dns_provider: FakeDNSProvider) -> None:

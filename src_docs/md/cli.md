@@ -220,7 +220,7 @@ Returns the provider's zone object.
 ## `copy`
 
 ```bash
-donazopy copy SOURCE DEST [--skip-ns] [--skip-types=...] [--replace] [--create] [--dotenv-path=PATH]
+donazopy copy SOURCE DEST [--skip-ns] [--skip-types=...] [--replace] [--create=BOOL] [--dotenv-path=PATH]
 ```
 
 Exports the `SOURCE` zone and imports it into the `DEST` zone — a convenience for
@@ -231,15 +231,15 @@ migrating or cloning zones (within or across providers).
 | `--skip-ns` | Drop `NS` records from what gets copied (apex `SOA` kept). |
 | `--skip-types=...` | Comma-separated record types to drop. |
 | `--replace` | Replace the destination zone's records instead of merging. |
-| `--create` | Create the destination zone first if the provider supports it (useful when moving a domain to a new DNS host). |
+| `--create=BOOL` | Create the destination zone first if it is missing and the provider supports it. Defaults to `True`; pass `--create=False` to skip. Destinations whose DNS zone exists with the domain registration (IONOS, GoDaddy, Joker) are tolerated — the step is skipped, not an error. |
 | `--dotenv-path=PATH` | Explicit `.env` for credentials. |
 
 ```bash
 # Clone a Cloudflare zone
 donazopy copy cloudflare/old.example cloudflare/new.example --skip-ns --replace --dotenv-path=.env
 
-# Migrate a domain from IONOS to Cloudflare, creating the Cloudflare zone first
-donazopy copy ionos/example.com cloudflare/example.com --skip-ns --replace --create --dotenv-path=.env
+# Migrate a domain from IONOS to Cloudflare (the Cloudflare zone is created if it does not exist)
+donazopy copy ionos/example.com cloudflare/example.com --skip-ns --replace --dotenv-path=.env
 ```
 
 ---

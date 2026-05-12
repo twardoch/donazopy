@@ -111,6 +111,10 @@ class CloudflareProvider:
         """
         name = domain.rstrip(".")
         try:
+            return self._zone(name)
+        except ProviderAPIError:
+            pass  # zone does not exist yet — create it below
+        try:
             payload = self._request("POST", "/zones", json={"name": name, "account": {"id": self._account_id()}})
         except ProviderAPIError as error:
             message = str(error).lower()

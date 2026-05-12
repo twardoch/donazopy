@@ -29,7 +29,7 @@ The format follows Keep a Changelog, and this project uses git-tag-derived seman
 - `CloudflareProvider.create_zone(domain)` → `POST /zones` (idempotent: returns the existing zone on the "already exists" / code 1061 error). The Cloudflare account is taken from `CLOUDFLARE_ACCOUNT_ID` when set, otherwise auto-detected via `GET /accounts` when the token spans exactly one account; `CLOUDFLARE_ACCOUNT_ID` is a new *optional* environment variable.
 - `IonosProvider`, `GoDaddyProvider`, `JokerProvider` `create_zone` raise a clear "not supported" error — those providers create the DNS zone implicitly with the domain registration.
 - New `donazopy create-zone TARGET` command.
-- `donazopy copy SOURCE DEST --create` creates the destination zone first (if the provider supports it) before deleting/importing — supports migrating a domain to a new DNS host. The `copy` result now includes a `"created"` entry alongside `"replaced"`.
+- `donazopy copy SOURCE DEST` now creates the destination zone first when it is missing and the provider supports it (default `--create=True`; pass `--create=False` to skip). Destinations whose DNS zone exists implicitly with the domain registration are tolerated — the create step is skipped, not an error. The `copy` result now includes a `"created"` entry alongside `"replaced"`. Cloudflare's `create_zone` checks for the existing zone first, so `copy` between existing Cloudflare zones does not need account-level token permissions.
 
 ### Added (issue 203 — unified target notation, CLI restructure, docs site)
 

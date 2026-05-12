@@ -9,6 +9,7 @@ from pathlib import Path
 from donazopy import __version__
 from donazopy.providers.base import (
     DNSHostingProvider,
+    ProviderAPIError,
     RegistrarProvider,
     credential_status,
     require_provider_credentials,
@@ -206,14 +207,16 @@ class Donazopy:
         skip_ns: bool = False,
         skip_types: str | None = None,
         replace: bool = False,
-        create: bool = False,
+        create: bool = True,
     ) -> Mapping[str, object]:
         """Copy a zone from ``source`` to ``dest``, optionally replacing existing records.
 
         ``source`` and ``dest`` are full targets. If the destination domain is ``*`` or
-        omitted, it defaults to the source domain. With ``--create`` the destination zone
-        is created first if the provider supports it (useful when migrating a domain to a
-        new DNS host).
+        omitted, it defaults to the source domain. By default the destination zone is
+        created first if it does not exist and the provider supports it (useful when
+        migrating a domain to a new DNS host); pass ``--create=False`` to skip that. The
+        result's ``created`` entry is the created/existing zone object, or ``None`` when
+        the destination provider does not support zone creation.
         """
         source_key, source_target = self._resolve_target(source)
         source_domain = self._require_domain(source_target)
@@ -228,7 +231,12 @@ class Donazopy:
         dest_provider = self._dns_provider(dest_key, dotenv_path)
         created: Mapping[str, object] | None = None
         if create:
-            created = dest_provider.create_zone(dest_domain)
+            try:
+                created = dest_provider.create_zone(dest_domain)
+            except ProviderAPIError as error:
+                # Some providers create the DNS zone with the domain registration; tolerate that.
+                if "not supported" not in str(error).lower():
+                    raise
         replaced: Mapping[str, object] | None = None
         if replace:
             replaced = dest_provider.delete_all_records(dest_domain)

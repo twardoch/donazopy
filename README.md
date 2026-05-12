@@ -90,7 +90,7 @@ uv run donazopy import-zone cloudflare/example.com example.com.zone --dotenv-pat
 # Copy a zone from one provider target to another
 uv run donazopy copy cloudflare/example.com cloudflare/example-staging.com --skip-ns
 uv run donazopy copy cloudflare/example.com cloudflare/example.com --replace  # wipe dest first
-uv run donazopy copy ionos/example.com cloudflare/example.com --skip-ns --replace --create  # migrate IONOS -> Cloudflare, creating the CF zone
+uv run donazopy copy ionos/example.com cloudflare/example.com --skip-ns --replace  # migrate IONOS -> Cloudflare (creates the CF zone if missing)
 
 # Create a hosted zone (Cloudflare)
 uv run donazopy create-zone cloudflare/example.com --dotenv-path=.env
@@ -122,7 +122,7 @@ uv run donazopy diff cloudflare/example.com example.com.zone
 | `donazopy export TARGET [--output=PATH] [--overwrite] [--skip-ns] [--skip-types=A,AAAA,...] [--dotenv-path=PATH]` | Export zone as BIND text |
 | `donazopy import-zone TARGET PATH [--proxied] [--dotenv-path=PATH]` | Import BIND zone file into provider |
 | `donazopy create-zone TARGET [--dotenv-path=PATH]` | Create a hosted zone for the domain (Cloudflare; idempotent). Other providers raise "not supported" — the zone exists with the domain. |
-| `donazopy copy SOURCE DEST [--skip-ns] [--skip-types=...] [--replace] [--create] [--dotenv-path=PATH]` | Copy zone between provider targets; `--create` makes the destination zone first |
+| `donazopy copy SOURCE DEST [--skip-ns] [--skip-types=...] [--replace] [--create=BOOL] [--dotenv-path=PATH]` | Copy zone between provider targets; by default the destination zone is created if missing (`--create=False` to skip) |
 | `donazopy nameservers TARGET [NS1 NS2 ...] [--dotenv-path=PATH]` | Read or assign nameservers |
 | `donazopy diff A B [--origin=...] [--dotenv-path=PATH]` | Diff two zones (file paths or provider targets) |
 | `donazopy validate PATH [--origin=...]` | Validate a local BIND zone file |

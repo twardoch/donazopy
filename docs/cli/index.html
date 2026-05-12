@@ -1148,7 +1148,7 @@ Joker) this raises a clear "not supported" error.</p>
 <p>Returns the provider's zone object.</p>
 <hr />
 <h2 id="copy"><code>copy</code><a class="headerlink" href="#copy" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>donazopy<span class="w"> </span>copy<span class="w"> </span>SOURCE<span class="w"> </span>DEST<span class="w"> </span><span class="o">[</span>--skip-ns<span class="o">]</span><span class="w"> </span><span class="o">[</span>--skip-types<span class="o">=</span>...<span class="o">]</span><span class="w"> </span><span class="o">[</span>--replace<span class="o">]</span><span class="w"> </span><span class="o">[</span>--create<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>donazopy<span class="w"> </span>copy<span class="w"> </span>SOURCE<span class="w"> </span>DEST<span class="w"> </span><span class="o">[</span>--skip-ns<span class="o">]</span><span class="w"> </span><span class="o">[</span>--skip-types<span class="o">=</span>...<span class="o">]</span><span class="w"> </span><span class="o">[</span>--replace<span class="o">]</span><span class="w"> </span><span class="o">[</span>--create<span class="o">=</span>BOOL<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
 </span></code></pre></div>
 <p>Exports the <code>SOURCE</code> zone and imports it into the <code>DEST</code> zone — a convenience for
 migrating or cloning zones (within or across providers).</p>
@@ -1173,8 +1173,8 @@ migrating or cloning zones (within or across providers).</p>
 <td>Replace the destination zone's records instead of merging.</td>
 </tr>
 <tr>
-<td><code>--create</code></td>
-<td>Create the destination zone first if the provider supports it (useful when moving a domain to a new DNS host).</td>
+<td><code>--create=BOOL</code></td>
+<td>Create the destination zone first if it is missing and the provider supports it. Defaults to <code>True</code>; pass <code>--create=False</code> to skip. Destinations whose DNS zone exists with the domain registration (IONOS, GoDaddy, Joker) are tolerated — the step is skipped, not an error.</td>
 </tr>
 <tr>
 <td><code>--dotenv-path=PATH</code></td>
@@ -1185,8 +1185,8 @@ migrating or cloning zones (within or across providers).</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># Clone a Cloudflare zone</span>
 </span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>donazopy<span class="w"> </span>copy<span class="w"> </span>cloudflare/old.example<span class="w"> </span>cloudflare/new.example<span class="w"> </span>--skip-ns<span class="w"> </span>--replace<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
 </span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1"># Migrate a domain from IONOS to Cloudflare, creating the Cloudflare zone first</span>
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>donazopy<span class="w"> </span>copy<span class="w"> </span>ionos/example.com<span class="w"> </span>cloudflare/example.com<span class="w"> </span>--skip-ns<span class="w"> </span>--replace<span class="w"> </span>--create<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1"># Migrate a domain from IONOS to Cloudflare (the Cloudflare zone is created if it does not exist)</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>donazopy<span class="w"> </span>copy<span class="w"> </span>ionos/example.com<span class="w"> </span>cloudflare/example.com<span class="w"> </span>--skip-ns<span class="w"> </span>--replace<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
 </span></code></pre></div>
 <hr />
 <h2 id="nameservers"><code>nameservers</code><a class="headerlink" href="#nameservers" title="Permanent link">&para;</a></h2>
