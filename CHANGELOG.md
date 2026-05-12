@@ -17,6 +17,20 @@ The format follows Keep a Changelog, and this project uses git-tag-derived seman
 - Tests: `tests/test_godaddy_provider.py`, `tests/test_ionos_provider.py`, `tests/test_joker_provider.py` (mocked `httpx.MockTransport` coverage of every adapter method, error paths, and BIND round-trips); updated `tests/test_registry.py` and `tests/test_cli.py` for the four-provider list.
 - Docs: `src_docs/md/providers.md` and `src_docs/md/architecture.md` updated (new operational-provider sections, planned-table trimmed) and the `docs/` site rebuilt; `README.md` provider matrix and credentials section updated.
 
+### Added — `domains` command and bulk nameserver reads
+
+- `donazopy domains PROVIDER` lists the domains/zones a provider manages. `PROVIDER` may be a provider key (`ionos`) or a target with a wildcard domain (`ionos/*`).
+- `donazopy nameservers PROVIDER/*` now reads nameservers for every domain the provider manages and returns a `{domain: [nameserver, ...]}` map (previously a wildcard domain errored). Assigning nameservers still requires a single concrete domain.
+- The "target must name a single domain" error now points users at `donazopy domains <provider>`.
+
+### Added — zone creation (`create-zone`, `copy --create`)
+
+- `DNSHostingProvider` Protocol gained `create_zone(domain)` (idempotent where supported; `ProviderAPIError` otherwise).
+- `CloudflareProvider.create_zone(domain)` → `POST /zones` (idempotent: returns the existing zone on the "already exists" / code 1061 error). The Cloudflare account is taken from `CLOUDFLARE_ACCOUNT_ID` when set, otherwise auto-detected via `GET /accounts` when the token spans exactly one account; `CLOUDFLARE_ACCOUNT_ID` is a new *optional* environment variable.
+- `IonosProvider`, `GoDaddyProvider`, `JokerProvider` `create_zone` raise a clear "not supported" error — those providers create the DNS zone implicitly with the domain registration.
+- New `donazopy create-zone TARGET` command.
+- `donazopy copy SOURCE DEST --create` creates the destination zone first (if the provider supports it) before deleting/importing — supports migrating a domain to a new DNS host. The `copy` result now includes a `"created"` entry alongside `"replaced"`.
+
 ### Added (issue 203 — unified target notation, CLI restructure, docs site)
 
 #### Unified target notation (`src/donazopy/target.py`)

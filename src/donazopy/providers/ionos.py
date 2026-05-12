@@ -48,6 +48,14 @@ class IonosProvider:
     def list_zones(self) -> list[str]:
         return [str(zone["name"]) for zone in self._zones() if zone.get("name")]
 
+    def create_zone(self, domain: str) -> Mapping[str, object]:
+        msg = (
+            "creating zones is not supported by the IONOS DNS adapter: a DNS zone is created "
+            f"automatically when the domain {domain!r} is added to the IONOS account. Add the "
+            "domain in the IONOS domain management area first."
+        )
+        raise ProviderAPIError(msg)
+
     def list_records(self, domain: str) -> list[Mapping[str, object]]:
         return self._records_of(self._zone_detail(domain))
 

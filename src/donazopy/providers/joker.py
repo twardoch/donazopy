@@ -75,6 +75,14 @@ class JokerProvider:
             domains.append(line.split()[0])
         return domains
 
+    def create_zone(self, domain: str) -> Mapping[str, object]:
+        msg = (
+            "creating zones is not supported by the Joker DMAPI adapter: a virtual DNS zone "
+            f"exists for a domain once it is registered or managed at Joker. Use 'import-zone' "
+            f"to populate the zone for {domain!r}."
+        )
+        raise ProviderAPIError(msg)
+
     def list_records(self, domain: str) -> list[Mapping[str, object]]:
         return [self._joker_line_to_record(line, domain) for line in self._zone_lines(domain)]
 

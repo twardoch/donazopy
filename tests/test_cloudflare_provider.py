@@ -178,3 +178,58 @@ def test_list_zones_when_multiple_pages_then_returns_all_names() -> None:
     provider = CloudflareProvider({"CLOUDFLARE_API_TOKEN": "token"}, client=make_cloudflare_client(handler))
 
     assert provider.list_zones() == ["alpha.example", "beta.example"]
+
+
+def test_create_zone_when_account_id_env_set_then_posts_zone(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "acct-123")
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/client/v4/zones" and request.method == "POST":
+            import json as _json
+
+            captured["body"] = _json.loads(request.content)
+            return httpx.Response(200, json={"success": True, "result": {"id": "new-zone", "name": "new.example"}})
+        return httpx.Response(404, json={"success": False, "errors": [{"message": "not found"}]})
+
+    provider = CloudflareProvider({"CLOUDFLARE_API_TOKEN": "token"}, client=make_cloudflare_client(handler))
+
+    result = provider.create_zone("new.example.")
+
+    assert captured["body"] == {"name": "new.example", "account": {"id": "acct-123"}}
+    assert result == {"id": "new-zone", "name": "new.example"}
+
+
+def test_create_zone_when_no_account_id_then_auto_detects_single_account(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("CLOUDFLARE_ACCOUNT_ID", raising=False)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/client/v4/accounts" and request.method == "GET":
+            return httpx.Response(200, json={"success": True, "result": [{"id": "only-acct", "name": "Solo"}]})
+        if request.url.path == "/client/v4/zones" and request.method == "POST":
+            return httpx.Response(200, json={"success": True, "result": {"id": "z", "name": "new.example"}})
+        return httpx.Response(404, json={"success": False, "errors": [{"message": "not found"}]})
+
+    provider = CloudflareProvider({"CLOUDFLARE_API_TOKEN": "token"}, client=make_cloudflare_client(handler))
+
+    assert provider.create_zone("new.example") == {"id": "z", "name": "new.example"}
+
+
+def test_create_zone_when_zone_exists_then_returns_existing_zone(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "acct-123")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/client/v4/zones" and request.method == "POST":
+            return httpx.Response(
+                400, json={"success": False, "errors": [{"code": 1061, "message": "the zone already exists"}]}
+            )
+        if request.url.path == "/client/v4/zones" and request.method == "GET":
+            return httpx.Response(200, json=zone_payload())
+        return httpx.Response(404, json={"success": False, "errors": [{"message": "not found"}]})
+
+    provider = CloudflareProvider({"CLOUDFLARE_API_TOKEN": "token"}, client=make_cloudflare_client(handler))
+
+    result = provider.create_zone("example.com")
+
+    assert result["id"] == "zone-id"
+    assert result["name"] == "example.com"

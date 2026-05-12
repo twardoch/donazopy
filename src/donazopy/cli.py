@@ -187,6 +187,17 @@ class Donazopy:
         zone_text = Path(path).read_text(encoding="utf-8")
         return self._dns_provider(key, dotenv_path).import_zone(domain, zone_text, proxied=proxied)
 
+    def create_zone(self, target: str, dotenv_path: str | None = None) -> Mapping[str, object]:
+        """Create a hosted zone for the domain in ``target`` on its provider.
+
+        Idempotent where the provider supports it (returns the existing zone). Providers
+        that cannot create zones (the zone exists with the domain registration) raise a
+        clear "not supported" error.
+        """
+        key, parsed = self._resolve_target(target)
+        domain = self._require_domain(parsed)
+        return self._dns_provider(key, dotenv_path).create_zone(domain)
+
     def copy(
         self,
         source: str,
@@ -195,11 +206,14 @@ class Donazopy:
         skip_ns: bool = False,
         skip_types: str | None = None,
         replace: bool = False,
+        create: bool = False,
     ) -> Mapping[str, object]:
         """Copy a zone from ``source`` to ``dest``, optionally replacing existing records.
 
         ``source`` and ``dest`` are full targets. If the destination domain is ``*`` or
-        omitted, it defaults to the source domain.
+        omitted, it defaults to the source domain. With ``--create`` the destination zone
+        is created first if the provider supports it (useful when migrating a domain to a
+        new DNS host).
         """
         source_key, source_target = self._resolve_target(source)
         source_domain = self._require_domain(source_target)
@@ -212,6 +226,9 @@ class Donazopy:
         exported_records = len([line for line in filtered.splitlines() if line.strip()])
 
         dest_provider = self._dns_provider(dest_key, dotenv_path)
+        created: Mapping[str, object] | None = None
+        if create:
+            created = dest_provider.create_zone(dest_domain)
         replaced: Mapping[str, object] | None = None
         if replace:
             replaced = dest_provider.delete_all_records(dest_domain)
@@ -220,6 +237,7 @@ class Donazopy:
             "source": source_target.to_dict(),
             "dest": {**dest_target.to_dict(), "domain": dest_domain},
             "exported_records": exported_records,
+            "created": created,
             "replaced": replaced,
             "import_result": import_result,
         }

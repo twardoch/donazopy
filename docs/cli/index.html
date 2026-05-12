@@ -426,6 +426,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#domains" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        domains
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#status" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -463,6 +474,17 @@
     <span class="md-ellipsis">
       
         import-zone
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#create-zone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        create-zone
       
     </span>
   </a>
@@ -765,6 +787,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#domains" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        domains
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#status" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -802,6 +835,17 @@
     <span class="md-ellipsis">
       
         import-zone
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#create-zone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        create-zone
       
     </span>
   </a>
@@ -952,13 +996,23 @@ No arguments. Returns a string.</p>
 <p>Lists the <strong>operational</strong> provider keys — providers that have a working adapter
 behind them. No arguments. Returns a list of strings.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$ donazopy providers
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>[&#39;cloudflare&#39;]
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>[&#39;cloudflare&#39;, &#39;godaddy&#39;, &#39;ionos&#39;, &#39;joker&#39;]
 </span></code></pre></div>
 <p>Providers documented in <code>spec/</code> but not yet implemented are deliberately <em>not</em>
 listed here. See <a href="../providers/">Providers</a> for the full table.</p>
 <hr />
+<h2 id="domains"><code>domains</code><a class="headerlink" href="#domains" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>donazopy<span class="w"> </span>domains<span class="w"> </span>PROVIDER<span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
+</span></code></pre></div>
+<p>Lists the domains/zones a provider manages. <code>PROVIDER</code> is a provider key
+(<code>ionos</code>) or a target with a wildcard domain (<code>ionos/*</code>). Returns a list of
+domain names.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>$ donazopy domains ionos
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>[&#39;example.com&#39;, &#39;example.net&#39;]
+</span></code></pre></div>
+<hr />
 <h2 id="status"><code>status</code><a class="headerlink" href="#status" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>donazopy<span class="w"> </span>status<span class="w"> </span><span class="o">[</span>TARGET<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>donazopy<span class="w"> </span>status<span class="w"> </span><span class="o">[</span>TARGET<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
 </span></code></pre></div>
 <p>Reports <strong>redacted</strong> credential status. Given a provider (via <code>TARGET</code>, e.g.
 <code>cloudflare</code> or <code>cloudflare/example.com</code>), it loads credentials from <code>.env</code> and
@@ -973,32 +1027,32 @@ the environment and reports:</p>
 <li><code>redacted</code> — <code>{name: "***"}</code> for each present credential. Secret values are
   <strong>never</strong> printed.</li>
 </ul>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>$ donazopy status cloudflare --dotenv-path=.env
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>{
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>  &quot;provider_key&quot;: &quot;cloudflare&quot;,
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>  &quot;required&quot;: [&quot;CLOUDFLARE_API_TOKEN&quot;],
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>  &quot;present&quot;: [&quot;CLOUDFLARE_API_TOKEN&quot;],
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>  &quot;missing&quot;: [],
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>  &quot;complete&quot;: true,
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>  &quot;sources&quot;: {&quot;CLOUDFLARE_API_TOKEN&quot;: &quot;.env&quot;},
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>  &quot;redacted&quot;: {&quot;CLOUDFLARE_API_TOKEN&quot;: &quot;***&quot;}
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>}
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>$ donazopy status cloudflare --dotenv-path=.env
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>{
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>  &quot;provider_key&quot;: &quot;cloudflare&quot;,
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>  &quot;required&quot;: [&quot;CLOUDFLARE_API_TOKEN&quot;],
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>  &quot;present&quot;: [&quot;CLOUDFLARE_API_TOKEN&quot;],
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>  &quot;missing&quot;: [],
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>  &quot;complete&quot;: true,
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>  &quot;sources&quot;: {&quot;CLOUDFLARE_API_TOKEN&quot;: &quot;.env&quot;},
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>  &quot;redacted&quot;: {&quot;CLOUDFLARE_API_TOKEN&quot;: &quot;***&quot;}
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>}
 </span></code></pre></div>
 <hr />
 <h2 id="records"><code>records</code><a class="headerlink" href="#records" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>donazopy<span class="w"> </span>records<span class="w"> </span>TARGET<span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>donazopy<span class="w"> </span>records<span class="w"> </span>TARGET<span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
 </span></code></pre></div>
 <p>Lists every DNS record in the target zone on the target provider. Requires the
 provider's credentials to be complete. Returns a list of record mappings — the
 raw provider fields (for Cloudflare: <code>id</code>, <code>type</code>, <code>name</code>, <code>content</code>, <code>ttl</code>,
 <code>proxied</code>, <code>priority</code>, …).</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>donazopy<span class="w"> </span>records<span class="w"> </span>cloudflare/example.com<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>donazopy<span class="w"> </span>records<span class="w"> </span>cloudflare/example.com<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
 </span></code></pre></div>
 <p>The <code>:type:host:value</code> segments of the target act as <strong>client-side filters</strong> on
 the returned records (see <a href="../targets/#record-level-filters">Target notation</a>).</p>
 <hr />
 <h2 id="export"><code>export</code><a class="headerlink" href="#export" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>donazopy<span class="w"> </span><span class="nb">export</span><span class="w"> </span>TARGET<span class="w"> </span><span class="o">[</span>--output<span class="o">=</span>PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--overwrite<span class="o">]</span><span class="w"> </span><span class="o">[</span>--skip-ns<span class="o">]</span><span class="w"> </span><span class="o">[</span>--skip-types<span class="o">=</span>A,AAAA,...<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>donazopy<span class="w"> </span><span class="nb">export</span><span class="w"> </span>TARGET<span class="w"> </span><span class="o">[</span>--output<span class="o">=</span>PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--overwrite<span class="o">]</span><span class="w"> </span><span class="o">[</span>--skip-ns<span class="o">]</span><span class="w"> </span><span class="o">[</span>--skip-types<span class="o">=</span>A,AAAA,...<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
 </span></code></pre></div>
 <p>Exports the target zone as BIND-compatible zone text using the provider's native
 export endpoint where available (Cloudflare has one).</p>
@@ -1032,16 +1086,16 @@ export endpoint where available (Cloudflare has one).</p>
 </tr>
 </tbody>
 </table>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># print to stdout</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>donazopy<span class="w"> </span><span class="nb">export</span><span class="w"> </span>cloudflare/example.com<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># write a trimmed copy</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>donazopy<span class="w"> </span><span class="nb">export</span><span class="w"> </span>cloudflare/example.com<span class="w"> </span>--output<span class="o">=</span>example.com.zone<span class="w"> </span>--overwrite<span class="w"> </span>--skip-ns<span class="w"> </span>--skip-types<span class="o">=</span>A,AAAA<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># print to stdout</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>donazopy<span class="w"> </span><span class="nb">export</span><span class="w"> </span>cloudflare/example.com<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># write a trimmed copy</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>donazopy<span class="w"> </span><span class="nb">export</span><span class="w"> </span>cloudflare/example.com<span class="w"> </span>--output<span class="o">=</span>example.com.zone<span class="w"> </span>--overwrite<span class="w"> </span>--skip-ns<span class="w"> </span>--skip-types<span class="o">=</span>A,AAAA<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
 </span></code></pre></div>
 <p>Returns the zone text (a string), even when <code>--output</code> is given.</p>
 <hr />
 <h2 id="import-zone"><code>import-zone</code><a class="headerlink" href="#import-zone" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>donazopy<span class="w"> </span>import-zone<span class="w"> </span>TARGET<span class="w"> </span>PATH<span class="w"> </span><span class="o">[</span>--proxied<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>donazopy<span class="w"> </span>import-zone<span class="w"> </span>TARGET<span class="w"> </span>PATH<span class="w"> </span><span class="o">[</span>--proxied<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
 </span></code></pre></div>
 <p>Reads BIND zone text from <code>PATH</code> and imports it into the target zone on the
 provider using the provider's native zone-import endpoint.</p>
@@ -1071,7 +1125,7 @@ provider using the provider's native zone-import endpoint.</p>
 </tr>
 </tbody>
 </table>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>donazopy<span class="w"> </span>import-zone<span class="w"> </span>cloudflare/example.com<span class="w"> </span>example.com.zone<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>donazopy<span class="w"> </span>import-zone<span class="w"> </span>cloudflare/example.com<span class="w"> </span>example.com.zone<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
 </span></code></pre></div>
 <p>Returns the provider's import-result mapping (record counts, etc.).</p>
 <div class="admonition warning">
@@ -1080,11 +1134,24 @@ provider using the provider's native zone-import endpoint.</p>
 beforehand so you have a backup.</p>
 </div>
 <hr />
+<h2 id="create-zone"><code>create-zone</code><a class="headerlink" href="#create-zone" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>donazopy<span class="w"> </span>create-zone<span class="w"> </span>TARGET<span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
+</span></code></pre></div>
+<p>Creates a hosted zone for the domain in <code>TARGET</code> on its provider. On Cloudflare
+this is <code>POST /zones</code> and is idempotent (returns the existing zone if it is
+already there); the account comes from <code>CLOUDFLARE_ACCOUNT_ID</code> if set, otherwise
+it is auto-detected when the API token spans exactly one account. On providers
+where a DNS zone exists implicitly with the domain registration (IONOS, GoDaddy,
+Joker) this raises a clear "not supported" error.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>donazopy<span class="w"> </span>create-zone<span class="w"> </span>cloudflare/example.com<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
+</span></code></pre></div>
+<p>Returns the provider's zone object.</p>
+<hr />
 <h2 id="copy"><code>copy</code><a class="headerlink" href="#copy" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>donazopy<span class="w"> </span>copy<span class="w"> </span>SOURCE<span class="w"> </span>DEST<span class="w"> </span><span class="o">[</span>--skip-ns<span class="o">]</span><span class="w"> </span><span class="o">[</span>--skip-types<span class="o">=</span>...<span class="o">]</span><span class="w"> </span><span class="o">[</span>--replace<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>donazopy<span class="w"> </span>copy<span class="w"> </span>SOURCE<span class="w"> </span>DEST<span class="w"> </span><span class="o">[</span>--skip-ns<span class="o">]</span><span class="w"> </span><span class="o">[</span>--skip-types<span class="o">=</span>...<span class="o">]</span><span class="w"> </span><span class="o">[</span>--replace<span class="o">]</span><span class="w"> </span><span class="o">[</span>--create<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
 </span></code></pre></div>
 <p>Exports the <code>SOURCE</code> zone and imports it into the <code>DEST</code> zone — a convenience for
-migrating or cloning zones (typically within the same provider).</p>
+migrating or cloning zones (within or across providers).</p>
 <table>
 <thead>
 <tr>
@@ -1106,32 +1173,43 @@ migrating or cloning zones (typically within the same provider).</p>
 <td>Replace the destination zone's records instead of merging.</td>
 </tr>
 <tr>
+<td><code>--create</code></td>
+<td>Create the destination zone first if the provider supports it (useful when moving a domain to a new DNS host).</td>
+</tr>
+<tr>
 <td><code>--dotenv-path=PATH</code></td>
 <td>Explicit <code>.env</code> for credentials.</td>
 </tr>
 </tbody>
 </table>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>donazopy<span class="w"> </span>copy<span class="w"> </span>cloudflare/old.example<span class="w"> </span>cloudflare/new.example<span class="w"> </span>--skip-ns<span class="w"> </span>--replace<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># Clone a Cloudflare zone</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>donazopy<span class="w"> </span>copy<span class="w"> </span>cloudflare/old.example<span class="w"> </span>cloudflare/new.example<span class="w"> </span>--skip-ns<span class="w"> </span>--replace<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1"># Migrate a domain from IONOS to Cloudflare, creating the Cloudflare zone first</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>donazopy<span class="w"> </span>copy<span class="w"> </span>ionos/example.com<span class="w"> </span>cloudflare/example.com<span class="w"> </span>--skip-ns<span class="w"> </span>--replace<span class="w"> </span>--create<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
 </span></code></pre></div>
 <hr />
 <h2 id="nameservers"><code>nameservers</code><a class="headerlink" href="#nameservers" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>donazopy<span class="w"> </span>nameservers<span class="w"> </span>TARGET<span class="w"> </span><span class="o">[</span>NS1<span class="w"> </span>NS2<span class="w"> </span>...<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>donazopy<span class="w"> </span>nameservers<span class="w"> </span>TARGET<span class="w"> </span><span class="o">[</span>NS1<span class="w"> </span>NS2<span class="w"> </span>...<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
 </span></code></pre></div>
 <p>With no <code>NS</code> arguments, <strong>reads</strong> the nameservers the provider has assigned to
 the target zone and returns them as a list of strings.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>$ donazopy nameservers cloudflare/example.com --dotenv-path=.env
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>[&#39;ada.ns.cloudflare.com&#39;, &#39;bob.ns.cloudflare.com&#39;]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>$ donazopy nameservers cloudflare/example.com --dotenv-path=.env
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>[&#39;ada.ns.cloudflare.com&#39;, &#39;bob.ns.cloudflare.com&#39;]
 </span></code></pre></div>
-<div class="admonition danger">
-<p class="admonition-title">Reassignment is not supported</p>
-<p>Passing <code>NS1 NS2 ...</code> to <em>set</em> registrar-level nameservers is <strong>not</strong>
-supported for Cloudflare and is out of scope today: changing a domain's
-delegation is a registrar/parent-zone operation, not a hosted-zone one. See
+<p>A wildcard domain (<code>provider/*</code>) reads nameservers for every domain the provider
+manages and returns a <code>{domain: [nameserver, ...]}</code> map:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>$ donazopy nameservers godaddy/* --dotenv-path=.env
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>{&#39;example.com&#39;: [&#39;ns01.domaincontrol.com&#39;, &#39;ns02.domaincontrol.com&#39;], &#39;example.net&#39;: [...]}
+</span></code></pre></div>
+<p>Passing <code>NS1 NS2 ...</code> <em>sets</em> registrar-level nameservers for the target domain.
+This is a real registrar delegation change on registrar-capable providers
+(GoDaddy, Joker); on DNS-only delegation surfaces (Cloudflare, IONOS) it raises a
+clear "not supported" error. See
 <a href="../providers/#nameservers-and-delegation">Providers → Nameservers and delegation</a>.</p>
-</div>
 <hr />
 <h2 id="diff"><code>diff</code><a class="headerlink" href="#diff" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>donazopy<span class="w"> </span>diff<span class="w"> </span>A<span class="w"> </span>B<span class="w"> </span><span class="o">[</span>--origin<span class="o">=</span>ORIGIN<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>donazopy<span class="w"> </span>diff<span class="w"> </span>A<span class="w"> </span>B<span class="w"> </span><span class="o">[</span>--origin<span class="o">=</span>ORIGIN<span class="o">]</span><span class="w"> </span><span class="o">[</span>--dotenv-path<span class="o">=</span>PATH<span class="o">]</span>
 </span></code></pre></div>
 <p>Compares two zones and returns a structured change plan. <code>A</code> and <code>B</code> may each be
 <strong>either</strong> a local zone-file path <strong>or</strong> a provider target — donazopy detects
@@ -1159,43 +1237,43 @@ which (see <a href="../targets/#local-path-detection">Target notation → local-
 </tbody>
 </table>
 <p>Returns:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span>
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="nt">&quot;summary&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;creates=1 updates=0 deletes=2 unchanged=14&quot;</span><span class="p">,</span>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">  </span><span class="nt">&quot;changes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">    </span><span class="nt">&quot;creates&quot;</span><span class="p">:</span><span class="w">   </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create&quot;</span><span class="p">,</span><span class="w">   </span><span class="nt">&quot;before&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;after&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">],</span>
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">    </span><span class="nt">&quot;updates&quot;</span><span class="p">:</span><span class="w">   </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;update&quot;</span><span class="p">,</span><span class="w">   </span><span class="nt">&quot;before&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="nt">&quot;after&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">],</span>
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">    </span><span class="nt">&quot;deletes&quot;</span><span class="p">:</span><span class="w">   </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;delete&quot;</span><span class="p">,</span><span class="w">   </span><span class="nt">&quot;before&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="nt">&quot;after&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">],</span>
-</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">    </span><span class="nt">&quot;unchanged&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;unchanged&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;before&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="nt">&quot;after&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span>
-</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">  </span><span class="p">}</span>
-</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="p">{</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span><span class="nt">&quot;summary&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;creates=1 updates=0 deletes=2 unchanged=14&quot;</span><span class="p">,</span>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w">  </span><span class="nt">&quot;changes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">    </span><span class="nt">&quot;creates&quot;</span><span class="p">:</span><span class="w">   </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create&quot;</span><span class="p">,</span><span class="w">   </span><span class="nt">&quot;before&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;after&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">],</span>
+</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="w">    </span><span class="nt">&quot;updates&quot;</span><span class="p">:</span><span class="w">   </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;update&quot;</span><span class="p">,</span><span class="w">   </span><span class="nt">&quot;before&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="nt">&quot;after&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">],</span>
+</span><span id="__span-22-6"><a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="w">    </span><span class="nt">&quot;deletes&quot;</span><span class="p">:</span><span class="w">   </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;delete&quot;</span><span class="p">,</span><span class="w">   </span><span class="nt">&quot;before&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="nt">&quot;after&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">],</span>
+</span><span id="__span-22-7"><a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a><span class="w">    </span><span class="nt">&quot;unchanged&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;unchanged&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;before&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="nt">&quot;after&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">...</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">]</span>
+</span><span id="__span-22-8"><a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-22-9"><a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Each record object has <code>owner</code>, <code>ttl</code>, <code>record_class</code>, <code>record_type</code>, <code>value</code>,
 and <code>source_order</code>. See <a href="../zonefiles/#the-diff-algorithm">Zone files → the diff algorithm</a> for how the
 plan is computed (identity vs exact key).</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># two local files</span>
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>donazopy<span class="w"> </span>diff<span class="w"> </span>before.zone<span class="w"> </span>after.zone<span class="w"> </span>--origin<span class="o">=</span>example.com.
-</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>
-</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="c1"># provider vs local file</span>
-</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>donazopy<span class="w"> </span>diff<span class="w"> </span>cloudflare/example.com<span class="w"> </span>edited.zone<span class="w"> </span>--origin<span class="o">=</span>example.com.<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
-</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>
-</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a><span class="c1"># provider vs provider</span>
-</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>donazopy<span class="w"> </span>diff<span class="w"> </span>cloudflare/a.example<span class="w"> </span>cloudflare/b.example<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># two local files</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>donazopy<span class="w"> </span>diff<span class="w"> </span>before.zone<span class="w"> </span>after.zone<span class="w"> </span>--origin<span class="o">=</span>example.com.
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="c1"># provider vs local file</span>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>donazopy<span class="w"> </span>diff<span class="w"> </span>cloudflare/example.com<span class="w"> </span>edited.zone<span class="w"> </span>--origin<span class="o">=</span>example.com.<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="c1"># provider vs provider</span>
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>donazopy<span class="w"> </span>diff<span class="w"> </span>cloudflare/a.example<span class="w"> </span>cloudflare/b.example<span class="w"> </span>--dotenv-path<span class="o">=</span>.env
 </span></code></pre></div>
 <hr />
 <h2 id="validate"><code>validate</code><a class="headerlink" href="#validate" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>donazopy<span class="w"> </span>validate<span class="w"> </span>PATH<span class="w"> </span><span class="o">[</span>--origin<span class="o">=</span>ORIGIN<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>donazopy<span class="w"> </span>validate<span class="w"> </span>PATH<span class="w"> </span><span class="o">[</span>--origin<span class="o">=</span>ORIGIN<span class="o">]</span>
 </span></code></pre></div>
 <p>Parses a local BIND zone file and returns a short success message, or raises if
 the zone is invalid (empty text, malformed records, SOA/NS problems).</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>$ donazopy validate example.com.zone --origin=example.com.
-</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>valid zone example.com.: 12 nodes
+<div class="language-text highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>$ donazopy validate example.com.zone --origin=example.com.
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>valid zone example.com.: 12 nodes
 </span></code></pre></div>
 <p><code>--origin</code> is the zone origin (with trailing dot, e.g. <code>example.com.</code>). If
 omitted, donazopy infers it from the filename stem (<code>example.com.zone</code> →
 <code>example.com</code>).</p>
 <hr />
 <h2 id="normalize"><code>normalize</code><a class="headerlink" href="#normalize" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>donazopy<span class="w"> </span>normalize<span class="w"> </span>PATH<span class="w"> </span><span class="o">[</span>--origin<span class="o">=</span>ORIGIN<span class="o">]</span><span class="w"> </span><span class="o">[</span>--output<span class="o">=</span>PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--overwrite<span class="o">]</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>donazopy<span class="w"> </span>normalize<span class="w"> </span>PATH<span class="w"> </span><span class="o">[</span>--origin<span class="o">=</span>ORIGIN<span class="o">]</span><span class="w"> </span><span class="o">[</span>--output<span class="o">=</span>PATH<span class="o">]</span><span class="w"> </span><span class="o">[</span>--overwrite<span class="o">]</span>
 </span></code></pre></div>
 <p>Parses a zone file and returns its <strong>canonical</strong> form: every record on one line,
 deterministically ordered (<code>owner</code>, <code>type</code>, <code>value</code>, <code>ttl</code>), with a trailing
@@ -1222,8 +1300,8 @@ newline. This is the form to commit to version control and to diff against.</p>
 </tr>
 </tbody>
 </table>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>donazopy<span class="w"> </span>normalize<span class="w"> </span>messy.zone<span class="w"> </span>--origin<span class="o">=</span>example.com.
-</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>donazopy<span class="w"> </span>normalize<span class="w"> </span>messy.zone<span class="w"> </span>--origin<span class="o">=</span>example.com.<span class="w"> </span>--output<span class="o">=</span>clean.zone<span class="w"> </span>--overwrite
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>donazopy<span class="w"> </span>normalize<span class="w"> </span>messy.zone<span class="w"> </span>--origin<span class="o">=</span>example.com.
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>donazopy<span class="w"> </span>normalize<span class="w"> </span>messy.zone<span class="w"> </span>--origin<span class="o">=</span>example.com.<span class="w"> </span>--output<span class="o">=</span>clean.zone<span class="w"> </span>--overwrite
 </span></code></pre></div>
 <p>Returns the normalized text (a string).</p>
 <hr />

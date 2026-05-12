@@ -90,6 +90,14 @@ class DNSHostingProvider(Protocol):
         """
         ...
 
+    def create_zone(self, domain: str) -> Mapping[str, object]:
+        """Create a hosted zone for ``domain`` and return the provider's zone object.
+
+        Implementations should be idempotent (returning the existing zone if it already
+        exists) and should raise :class:`ProviderAPIError` if they cannot create zones.
+        """
+        ...
+
 
 @runtime_checkable
 class RegistrarProvider(Protocol):

@@ -28,6 +28,7 @@ class FakeDNSProvider:
         self.zone_text = zone_text
         self.imported: list[tuple[str, str]] = []
         self.deleted: list[str] = []
+        self.created: list[str] = []
         self.records: list[Mapping[str, object]] = [
             {"id": "1", "type": "A", "name": "www.example.com", "content": "192.0.2.20"},
             {"id": "2", "type": "TXT", "name": "txt.example.com", "content": "hello world"},
@@ -49,6 +50,10 @@ class FakeDNSProvider:
 
     def list_zones(self) -> list[str]:
         return ["example.com"]
+
+    def create_zone(self, domain: str) -> Mapping[str, object]:
+        self.created.append(domain)
+        return {"id": f"zone-{domain}", "name": domain}
 
 
 class FakeRegistrarProvider:
@@ -161,8 +166,24 @@ def test_copy_when_replace_then_deletes_then_imports(cli: Donazopy, dns_provider
     assert dns_provider.deleted == ["example.com"]
     assert result["dest"]["domain"] == "example.com"
     assert result["replaced"] == {"deleted": 2, "failed": 0}
+    assert result["created"] is None
     assert result["exported_records"] > 0
     assert dns_provider.imported
+
+
+def test_copy_when_create_then_creates_dest_zone_first(cli: Donazopy, dns_provider: FakeDNSProvider) -> None:
+    result = cli.copy("cloudflare/example.com", "cloudflare/dest.example", create=True, replace=True)
+
+    assert dns_provider.created == ["dest.example"]
+    assert result["created"] == {"id": "zone-dest.example", "name": "dest.example"}
+    assert dns_provider.imported and dns_provider.imported[0][0] == "dest.example"
+
+
+def test_create_zone_command_when_called_then_creates_zone(cli: Donazopy, dns_provider: FakeDNSProvider) -> None:
+    result = cli.create_zone("cloudflare/new.example")
+
+    assert dns_provider.created == ["new.example"]
+    assert result == {"id": "zone-new.example", "name": "new.example"}
 
 
 def test_nameservers_when_no_args_then_reads(cli: Donazopy) -> None:

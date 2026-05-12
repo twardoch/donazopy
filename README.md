@@ -31,7 +31,8 @@ Credentials are loaded with [`python-dotenv`](https://pypi.org/project/python-do
 Create an ignored `.env` with the credentials for the provider(s) you use:
 
 ```dotenv
-CLOUDFLARE_API_TOKEN=your-token          # Cloudflare (DNS Read for list/export, DNS Edit for import/copy)
+CLOUDFLARE_API_TOKEN=your-token          # Cloudflare (DNS Read for list/export, DNS Edit for import/copy, Zone Edit for create-zone)
+CLOUDFLARE_ACCOUNT_ID=your-account-id    # Cloudflare, optional — only needed for create-zone when the token spans multiple accounts
 GODADDY_API_KEY=your-key                 # GoDaddy
 GODADDY_API_SECRET=your-secret
 IONOS_API_PUBLIC=your-public-prefix      # IONOS (combined as "{public}.{secret}" in the X-API-Key header)
@@ -89,6 +90,10 @@ uv run donazopy import-zone cloudflare/example.com example.com.zone --dotenv-pat
 # Copy a zone from one provider target to another
 uv run donazopy copy cloudflare/example.com cloudflare/example-staging.com --skip-ns
 uv run donazopy copy cloudflare/example.com cloudflare/example.com --replace  # wipe dest first
+uv run donazopy copy ionos/example.com cloudflare/example.com --skip-ns --replace --create  # migrate IONOS -> Cloudflare, creating the CF zone
+
+# Create a hosted zone (Cloudflare)
+uv run donazopy create-zone cloudflare/example.com --dotenv-path=.env
 
 # Read or assign nameservers
 uv run donazopy nameservers cloudflare/example.com --dotenv-path=.env
@@ -116,7 +121,8 @@ uv run donazopy diff cloudflare/example.com example.com.zone
 | `donazopy records TARGET [--dotenv-path=PATH]` | List DNS records (target may include record filters) |
 | `donazopy export TARGET [--output=PATH] [--overwrite] [--skip-ns] [--skip-types=A,AAAA,...] [--dotenv-path=PATH]` | Export zone as BIND text |
 | `donazopy import-zone TARGET PATH [--proxied] [--dotenv-path=PATH]` | Import BIND zone file into provider |
-| `donazopy copy SOURCE DEST [--skip-ns] [--skip-types=...] [--replace] [--dotenv-path=PATH]` | Copy zone between provider targets |
+| `donazopy create-zone TARGET [--dotenv-path=PATH]` | Create a hosted zone for the domain (Cloudflare; idempotent). Other providers raise "not supported" — the zone exists with the domain. |
+| `donazopy copy SOURCE DEST [--skip-ns] [--skip-types=...] [--replace] [--create] [--dotenv-path=PATH]` | Copy zone between provider targets; `--create` makes the destination zone first |
 | `donazopy nameservers TARGET [NS1 NS2 ...] [--dotenv-path=PATH]` | Read or assign nameservers |
 | `donazopy diff A B [--origin=...] [--dotenv-path=PATH]` | Diff two zones (file paths or provider targets) |
 | `donazopy validate PATH [--origin=...]` | Validate a local BIND zone file |

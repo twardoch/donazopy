@@ -301,10 +301,25 @@ Lists the **operational** provider keys — providers that have a working adapte
 
 ```text
 $ donazopy providers
-['cloudflare']
+['cloudflare', 'godaddy', 'ionos', 'joker']
 ```
 
 Providers documented in `spec/` but not yet implemented are deliberately *not* listed here. See [Providers](https://github.com/twardoch/donazopy/providers/index.md) for the full table.
+
+______________________________________________________________________
+
+## `domains`
+
+```bash
+donazopy domains PROVIDER [--dotenv-path=PATH]
+```
+
+Lists the domains/zones a provider manages. `PROVIDER` is a provider key (`ionos`) or a target with a wildcard domain (`ionos/*`). Returns a list of domain names.
+
+```text
+$ donazopy domains ionos
+['example.com', 'example.net']
+```
 
 ______________________________________________________________________
 
@@ -409,23 +424,44 @@ Run an export first
 
 ______________________________________________________________________
 
+## `create-zone`
+
+```bash
+donazopy create-zone TARGET [--dotenv-path=PATH]
+```
+
+Creates a hosted zone for the domain in `TARGET` on its provider. On Cloudflare this is `POST /zones` and is idempotent (returns the existing zone if it is already there); the account comes from `CLOUDFLARE_ACCOUNT_ID` if set, otherwise it is auto-detected when the API token spans exactly one account. On providers where a DNS zone exists implicitly with the domain registration (IONOS, GoDaddy, Joker) this raises a clear "not supported" error.
+
+```bash
+donazopy create-zone cloudflare/example.com --dotenv-path=.env
+```
+
+Returns the provider's zone object.
+
+______________________________________________________________________
+
 ## `copy`
 
 ```bash
-donazopy copy SOURCE DEST [--skip-ns] [--skip-types=...] [--replace] [--dotenv-path=PATH]
+donazopy copy SOURCE DEST [--skip-ns] [--skip-types=...] [--replace] [--create] [--dotenv-path=PATH]
 ```
 
-Exports the `SOURCE` zone and imports it into the `DEST` zone — a convenience for migrating or cloning zones (typically within the same provider).
+Exports the `SOURCE` zone and imports it into the `DEST` zone — a convenience for migrating or cloning zones (within or across providers).
 
-| Flag                 | Effect                                                     |
-| -------------------- | ---------------------------------------------------------- |
-| `--skip-ns`          | Drop `NS` records from what gets copied (apex `SOA` kept). |
-| `--skip-types=...`   | Comma-separated record types to drop.                      |
-| `--replace`          | Replace the destination zone's records instead of merging. |
-| `--dotenv-path=PATH` | Explicit `.env` for credentials.                           |
+| Flag                 | Effect                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `--skip-ns`          | Drop `NS` records from what gets copied (apex `SOA` kept).                                                     |
+| `--skip-types=...`   | Comma-separated record types to drop.                                                                          |
+| `--replace`          | Replace the destination zone's records instead of merging.                                                     |
+| `--create`           | Create the destination zone first if the provider supports it (useful when moving a domain to a new DNS host). |
+| `--dotenv-path=PATH` | Explicit `.env` for credentials.                                                                               |
 
 ```bash
+# Clone a Cloudflare zone
 donazopy copy cloudflare/old.example cloudflare/new.example --skip-ns --replace --dotenv-path=.env
+
+# Migrate a domain from IONOS to Cloudflare, creating the Cloudflare zone first
+donazopy copy ionos/example.com cloudflare/example.com --skip-ns --replace --create --dotenv-path=.env
 ```
 
 ______________________________________________________________________
@@ -443,9 +479,14 @@ $ donazopy nameservers cloudflare/example.com --dotenv-path=.env
 ['ada.ns.cloudflare.com', 'bob.ns.cloudflare.com']
 ```
 
-Reassignment is not supported
+A wildcard domain (`provider/*`) reads nameservers for every domain the provider manages and returns a `{domain: [nameserver, ...]}` map:
 
-Passing `NS1 NS2 ...` to *set* registrar-level nameservers is **not** supported for Cloudflare and is out of scope today: changing a domain's delegation is a registrar/parent-zone operation, not a hosted-zone one. See [Providers → Nameservers and delegation](https://github.com/twardoch/donazopy/providers/#nameservers-and-delegation).
+```text
+$ donazopy nameservers godaddy/* --dotenv-path=.env
+{'example.com': ['ns01.domaincontrol.com', 'ns02.domaincontrol.com'], 'example.net': [...]}
+```
+
+Passing `NS1 NS2 ...` *sets* registrar-level nameservers for the target domain. This is a real registrar delegation change on registrar-capable providers (GoDaddy, Joker); on DNS-only delegation surfaces (Cloudflare, IONOS) it raises a clear "not supported" error. See [Providers → Nameservers and delegation](https://github.com/twardoch/donazopy/providers/#nameservers-and-delegation).
 
 ______________________________________________________________________
 
@@ -690,6 +731,7 @@ class DNSHostingProvider(Protocol):
     def list_records(self, domain: str) -> list[Mapping[str, object]]: ...
     def delete_all_records(self, domain: str) -> Mapping[str, object]: ...
     def list_zones(self) -> list[str]: ...
+    def create_zone(self, domain: str) -> Mapping[str, object]: ...
 
 class RegistrarProvider(Protocol):
     spec: ProviderSpec
@@ -726,15 +768,17 @@ Credentials are loaded with `python-dotenv` plus the environment, in this order 
 - `export` → `GET /zones/{id}/dns_records/export` (Cloudflare's native BIND export); the result is returned (and optionally written / filtered).
 - `import-zone` → `POST /zones/{id}/dns_records/import` with the zone file as a multipart upload; `--proxied` sets the `proxied` form field.
 - `nameservers` (read) → the `name_servers` field on the zone object from `GET /zones?name=...`.
+- `create-zone` / `copy --create` → `POST /zones` (idempotent — returns the existing zone on the "already exists" error). The account comes from `CLOUDFLARE_ACCOUNT_ID` if set, otherwise it is auto-detected when the token has access to exactly one account.
 
 Zone lookup is by name: `GET /zones?name=example.com&per_page=1`. A missing zone, a malformed response, or any `4xx`/`5xx` raises `ProviderAPIError` with the Cloudflare error message(s) extracted from the response.
 
 ### Token scopes
 
-| Operation                          | Required Cloudflare token permission |
-| ---------------------------------- | ------------------------------------ |
-| `records`, `export`, `nameservers` | Zone → DNS → **Read**                |
-| `import-zone`                      | Zone → DNS → **Edit**                |
+| Operation                          | Required Cloudflare token permission                                                   |
+| ---------------------------------- | -------------------------------------------------------------------------------------- |
+| `records`, `export`, `nameservers` | Zone → DNS → **Read**                                                                  |
+| `import-zone`, `copy`              | Zone → DNS → **Edit**                                                                  |
+| `create-zone`, `copy --create`     | Zone → **Edit** (and account access for `POST /zones`; or set `CLOUDFLARE_ACCOUNT_ID`) |
 
 Create a scoped API token in the Cloudflare dashboard (My Profile → API Tokens), restricted to the specific zone(s) you operate on, and put it in `.env`:
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Mapping, Sequence
 
 import httpx
@@ -102,6 +103,46 @@ class CloudflareProvider:
             page += 1
         return names
 
+    def create_zone(self, domain: str) -> Mapping[str, object]:
+        """Create a Cloudflare zone for ``domain`` (idempotent: returns the existing zone if present).
+
+        The Cloudflare account is taken from ``CLOUDFLARE_ACCOUNT_ID`` if set, otherwise it is
+        auto-detected when the API token has access to exactly one account.
+        """
+        name = domain.rstrip(".")
+        try:
+            payload = self._request("POST", "/zones", json={"name": name, "account": {"id": self._account_id()}})
+        except ProviderAPIError as error:
+            message = str(error).lower()
+            if "already exists" in message or "1061" in message:
+                return self._zone(name)
+            raise
+        result = payload.get("result", {})
+        return result if isinstance(result, dict) else {"result": result}
+
+    def _account_id(self) -> str:
+        configured = os.environ.get("CLOUDFLARE_ACCOUNT_ID")
+        if configured:
+            return configured
+        payload = self._request("GET", "/accounts", params={"per_page": 50})
+        result = payload.get("result", [])
+        accounts = (
+            [account for account in result if isinstance(account, dict) and account.get("id")]
+            if isinstance(result, list)
+            else []
+        )
+        if len(accounts) == 1:
+            return str(accounts[0]["id"])
+        if not accounts:
+            raise ProviderAPIError(
+                "could not determine a Cloudflare account for zone creation: the API token cannot "
+                "list accounts. Set CLOUDFLARE_ACCOUNT_ID."
+            )
+        raise ProviderAPIError(
+            "the Cloudflare API token has access to multiple accounts; set CLOUDFLARE_ACCOUNT_ID "
+            "to choose one for zone creation."
+        )
+
     def delete_all_records(self, domain: str) -> Mapping[str, object]:
         zone = self._zone(domain)
         zone_id = zone["id"]
@@ -141,6 +182,7 @@ class CloudflareProvider:
         params: Mapping[str, str | int] | None = None,
         data: Mapping[str, str] | None = None,
         files: Mapping[str, tuple[str, bytes, str]] | None = None,
+        json: object | None = None,
     ) -> Mapping[str, object]:
         response = self._client.request(
             method,
@@ -149,6 +191,7 @@ class CloudflareProvider:
             params=params,
             data=data,
             files=files,
+            json=json,
         )
         if response.status_code >= 400:
             raise ProviderAPIError(_cloudflare_error_message(response))

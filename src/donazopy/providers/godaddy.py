@@ -58,6 +58,14 @@ class GoDaddyProvider:
             raise ProviderAPIError("GoDaddy domains response was not a JSON array")
         return [str(item["domain"]) for item in payload if isinstance(item, dict) and item.get("domain")]
 
+    def create_zone(self, domain: str) -> Mapping[str, object]:
+        msg = (
+            "creating zones is not supported by the GoDaddy adapter: the DNS zone for a domain "
+            f"exists once the domain is registered with GoDaddy. Register {domain!r} first, then "
+            "use 'import-zone' to populate its records."
+        )
+        raise ProviderAPIError(msg)
+
     def list_records(self, domain: str) -> list[Mapping[str, object]]:
         return self._records(domain)
 
