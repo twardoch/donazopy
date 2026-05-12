@@ -67,6 +67,9 @@ Most commands accept a `TARGET` argument using the notation:
 uv run donazopy version
 uv run donazopy providers
 
+# Domains a provider manages
+uv run donazopy domains ionos --dotenv-path=.env
+
 # Provider metadata and credential status
 uv run donazopy status
 uv run donazopy status cloudflare
