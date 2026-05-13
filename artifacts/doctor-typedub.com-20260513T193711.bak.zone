@@ -1,0 +1,62 @@
+;;
+;; Domain:     typedub.com.
+;; Exported:   2026-05-13 19:37:11
+;;
+;; This file is intended for use for informational and archival
+;; purposes ONLY and MUST be edited before use on a production
+;; DNS server.  In particular, you must:
+;;   -- update the SOA record with the correct authoritative name server
+;;   -- update the SOA record with the contact e-mail address information
+;;   -- update the NS record(s) with the authoritative name servers for this domain.
+;;
+;; For further information, please consult the BIND documentation
+;; located on the following website:
+;;
+;; http://www.isc.org/
+;;
+;; And RFC 1035:
+;;
+;; http://www.ietf.org/rfc/rfc1035.txt
+;;
+;; Please note that we do NOT offer technical support for any use
+;; of this zone data, the BIND name server, or any other third-party
+;; DNS software.
+;;
+;; Use at your own risk.
+;; SOA Record
+typedub.com	3600	IN	SOA	hank.ns.cloudflare.com. dns.cloudflare.com. 2053036763 10000 2400 604800 3600
+
+;; NS Records
+typedub.com.	86400	IN	NS	hank.ns.cloudflare.com.
+typedub.com.	86400	IN	NS	ryleigh.ns.cloudflare.com.
+
+;; A Records
+typedub.com.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+www.typedub.com.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+
+;; AAAA Records
+typedub.com.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+www.typedub.com.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+
+;; CNAME Records
+autodiscover.typedub.com.	1	IN	CNAME	adsredir.ionos.info. ; cf_tags=cf-proxied:false
+_dmarc.typedub.com.	1	IN	CNAME	dmarc.ionos.com. ; cf_tags=cf-proxied:false
+_domainconnect.typedub.com.	1	IN	CNAME	_domainconnect.ionos.com. ; cf_tags=cf-proxied:false
+s1-ionos._domainkey.typedub.com.	1	IN	CNAME	s1.dkim.ionos.com. ; cf_tags=cf-proxied:false
+s2-ionos._domainkey.typedub.com.	1	IN	CNAME	s2.dkim.ionos.com. ; cf_tags=cf-proxied:false
+
+;; MX Records
+typedub.com.	3600	IN	MX	10 mx00.ionos.com.
+typedub.com.	3600	IN	MX	10 mx01.ionos.com.
+
+;; NS Records
+typedub.com.	86400	IN	NS	ns1045.ui-dns.com.
+typedub.com.	86400	IN	NS	ns1045.ui-dns.de.
+typedub.com.	86400	IN	NS	ns1045.ui-dns.biz.
+typedub.com.	86400	IN	NS	ns1045.ui-dns.org.
+
+;; TXT Records
+_dep_ws_mutex.typedub.com.	3600	IN	TXT	"905a8dd8f02e3a3eac6a22202dfd01c574ff785a6cad24c4776cdcaec5d24c5a_1777997946553"
+_dep_ws_mutex.typedub.com.	3600	IN	TXT	"\"905a8dd8f02e3a3eac6a22202dfd01c574ff785a6cad24c4776cdcaec5d24c5a_1777997946553\""
+typedub.com.	3600	IN	TXT	"v=spf1 include:_spf-us.ionos.com ~all"
+typedub.com.	3600	IN	TXT	"\"v=spf1 include:_spf-us.ionos.com ~all\""

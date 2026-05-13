@@ -1,0 +1,57 @@
+;;
+;; Domain:     fontlab.ru.
+;; Exported:   2026-05-13 19:34:32
+;;
+;; This file is intended for use for informational and archival
+;; purposes ONLY and MUST be edited before use on a production
+;; DNS server.  In particular, you must:
+;;   -- update the SOA record with the correct authoritative name server
+;;   -- update the SOA record with the contact e-mail address information
+;;   -- update the NS record(s) with the authoritative name servers for this domain.
+;;
+;; For further information, please consult the BIND documentation
+;; located on the following website:
+;;
+;; http://www.isc.org/
+;;
+;; And RFC 1035:
+;;
+;; http://www.ietf.org/rfc/rfc1035.txt
+;;
+;; Please note that we do NOT offer technical support for any use
+;; of this zone data, the BIND name server, or any other third-party
+;; DNS software.
+;;
+;; Use at your own risk.
+;; SOA Record
+fontlab.ru	3600	IN	SOA	hank.ns.cloudflare.com. dns.cloudflare.com. 2053036747 10000 2400 604800 3600
+
+;; NS Records
+fontlab.ru.	86400	IN	NS	hank.ns.cloudflare.com.
+fontlab.ru.	86400	IN	NS	ryleigh.ns.cloudflare.com.
+
+;; A Records
+fontlab.ru.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+lab.fontlab.ru.	1	IN	A	178.16.149.134 ; cf_tags=cf-proxied:true
+register.fontlab.ru.	1	IN	A	178.16.149.134 ; cf_tags=cf-proxied:true
+www.fontlab.ru.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+
+;; AAAA Records
+fontlab.ru.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+www.fontlab.ru.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+
+;; CNAME Records
+autodiscover.fontlab.ru.	1	IN	CNAME	adsredir.1and1.info. ; cf_tags=cf-proxied:false
+_domainconnect.fontlab.ru.	1	IN	CNAME	_domainconnect.ionos.com. ; cf_tags=cf-proxied:false
+
+;; MX Records
+fontlab.ru.	3600	IN	MX	10 mx01.1and1.com.
+fontlab.ru.	3600	IN	MX	10 mx00.1and1.com.
+
+;; NS Records
+fontlab.ru.	86400	IN	NS	ns58.1and1.com.
+fontlab.ru.	86400	IN	NS	ns57.1and1.com.
+
+;; TXT Records
+_dep_ws_mutex.fontlab.ru.	3600	IN	TXT	"fc6c934a10dc2658742a48bedc5c15b2eea1f8b859129c9ffcc5962f2d8752e4_1777935662314"
+_dep_ws_mutex.fontlab.ru.	3600	IN	TXT	"\"fc6c934a10dc2658742a48bedc5c15b2eea1f8b859129c9ffcc5962f2d8752e4_1777935662314\""

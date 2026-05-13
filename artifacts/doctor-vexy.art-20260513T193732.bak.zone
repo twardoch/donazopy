@@ -1,0 +1,109 @@
+;;
+;; Domain:     vexy.art.
+;; Exported:   2026-05-13 19:37:32
+;;
+;; This file is intended for use for informational and archival
+;; purposes ONLY and MUST be edited before use on a production
+;; DNS server.  In particular, you must:
+;;   -- update the SOA record with the correct authoritative name server
+;;   -- update the SOA record with the contact e-mail address information
+;;   -- update the NS record(s) with the authoritative name servers for this domain.
+;;
+;; For further information, please consult the BIND documentation
+;; located on the following website:
+;;
+;; http://www.isc.org/
+;;
+;; And RFC 1035:
+;;
+;; http://www.ietf.org/rfc/rfc1035.txt
+;;
+;; Please note that we do NOT offer technical support for any use
+;; of this zone data, the BIND name server, or any other third-party
+;; DNS software.
+;;
+;; Use at your own risk.
+;; SOA Record
+vexy.art	3600	IN	SOA	hank.ns.cloudflare.com. dns.cloudflare.com. 2053036765 10000 2400 604800 3600
+
+;; NS Records
+vexy.art.	86400	IN	NS	hank.ns.cloudflare.com.
+vexy.art.	86400	IN	NS	ryleigh.ns.cloudflare.com.
+
+;; A Records
+api.vexy.art.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+ask.vexy.art.	1	IN	A	65.181.113.15 ; cf_tags=cf-proxied:true
+bezz.vexy.art.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+cc.vexy.art.	1	IN	A	65.181.113.15 ; cf_tags=cf-proxied:true
+download.vexy.art.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+forum.vexy.art.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+get.vexy.art.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+go.vexy.art.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+help.vexy.art.	1	IN	A	65.181.113.15 ; cf_tags=cf-proxied:true
+lines.vexy.art.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+playbezz.vexy.art.	1	IN	A	65.181.113.15 ; cf_tags=cf-proxied:true
+playlines.vexy.art.	1	IN	A	65.181.113.15 ; cf_tags=cf-proxied:true
+vexy.art.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+www.vexy.art.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+
+;; AAAA Records
+api.vexy.art.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+bezz.vexy.art.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+download.vexy.art.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+forum.vexy.art.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+get.vexy.art.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+go.vexy.art.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+lines.vexy.art.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+vexy.art.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+www.vexy.art.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+
+;; CNAME Records
+autodiscover.api.vexy.art.	1	IN	CNAME	adsredir.ionos.info. ; cf_tags=cf-proxied:false
+autodiscover.vexy.art.	1	IN	CNAME	adsredir.ionos.info. ; cf_tags=cf-proxied:false
+_dmarc.vexy.art.	1	IN	CNAME	dmarc.ionos.com. ; cf_tags=cf-proxied:false
+_domainconnect.vexy.art.	1	IN	CNAME	_domainconnect.ionos.com. ; cf_tags=cf-proxied:false
+i.vexy.art.	1	IN	CNAME	fontlab.github.io. ; cf_tags=cf-proxied:true
+s1-ionos._domainkey.api.vexy.art.	1	IN	CNAME	s1.dkim.ionos.com. ; cf_tags=cf-proxied:false
+s1-ionos._domainkey.vexy.art.	1	IN	CNAME	s1.dkim.ionos.com. ; cf_tags=cf-proxied:false
+s2-ionos._domainkey.api.vexy.art.	1	IN	CNAME	s2.dkim.ionos.com. ; cf_tags=cf-proxied:false
+s2-ionos._domainkey.vexy.art.	1	IN	CNAME	s2.dkim.ionos.com. ; cf_tags=cf-proxied:false
+s42582890._domainkey.api.vexy.art.	1	IN	CNAME	s42582890.dkim.ionos.com. ; cf_tags=cf-proxied:false
+s42582890._domainkey.vexy.art.	1	IN	CNAME	s42582890.dkim.ionos.com. ; cf_tags=cf-proxied:false
+support.vexy.art.	1	IN	CNAME	a38ed0a78c5fc42b11a40e959be7280d.freshdesk.com. ; cf_tags=cf-proxied:true
+
+;; MX Records
+api.vexy.art.	3600	IN	MX	10 mx00.ionos.com.
+api.vexy.art.	3600	IN	MX	10 mx01.ionos.com.
+vexy.art.	3600	IN	MX	10 mx01.ionos.com.
+vexy.art.	3600	IN	MX	10 mx00.ionos.com.
+
+;; NS Records
+vexy.art.	86400	IN	NS	ns1045.ui-dns.com.
+vexy.art.	86400	IN	NS	ns1045.ui-dns.org.
+vexy.art.	86400	IN	NS	ns1045.ui-dns.de.
+vexy.art.	86400	IN	NS	ns1045.ui-dns.biz.
+
+;; TXT Records
+api.vexy.art.	3600	IN	TXT	"v=spf1 include:_spf-us.ionos.com ~all"
+api.vexy.art.	3600	IN	TXT	"\"v=spf1 include:_spf-us.ionos.com ~all\""
+_dep_ws_mutex.api.vexy.art.	3600	IN	TXT	"3b488de5d9dce82459f0928d3fcc4c4e664597b2577aa971d92e5cad16daa9d8_1778004962163"
+_dep_ws_mutex.api.vexy.art.	3600	IN	TXT	"\"3b488de5d9dce82459f0928d3fcc4c4e664597b2577aa971d92e5cad16daa9d8_1778004962163\""
+_dep_ws_mutex.bezz.vexy.art.	3600	IN	TXT	"6fd5dee4fd927ef645b53f48392f8ddfa83f5606ada7a52a982036faef5e14ad_1778005132139"
+_dep_ws_mutex.bezz.vexy.art.	3600	IN	TXT	"\"6fd5dee4fd927ef645b53f48392f8ddfa83f5606ada7a52a982036faef5e14ad_1778005132139\""
+_dep_ws_mutex.download.vexy.art.	3600	IN	TXT	"ee6dd11085cf289bb04e854cd73e945f29dc4727b65a6d49fdcf387dcb06d78c_1778005464179"
+_dep_ws_mutex.download.vexy.art.	3600	IN	TXT	"\"ee6dd11085cf289bb04e854cd73e945f29dc4727b65a6d49fdcf387dcb06d78c_1778005464179\""
+_dep_ws_mutex.forum.vexy.art.	3600	IN	TXT	"d2a33af9be02139ce4c679aab2ec49998f2ab80f30dca4ba06c37f98023ad9a3_1778005578469"
+_dep_ws_mutex.forum.vexy.art.	3600	IN	TXT	"\"d2a33af9be02139ce4c679aab2ec49998f2ab80f30dca4ba06c37f98023ad9a3_1778005578469\""
+_dep_ws_mutex.get.vexy.art.	3600	IN	TXT	"00aec83f5b7f539785ff6f193eaf4510e3a6f817162ccf415d4ac9dd58129459_1778005608622"
+_dep_ws_mutex.get.vexy.art.	3600	IN	TXT	"\"00aec83f5b7f539785ff6f193eaf4510e3a6f817162ccf415d4ac9dd58129459_1778005608622\""
+_dep_ws_mutex.go.vexy.art.	3600	IN	TXT	"00f149123c471495d7efcb130a9f142af12c658c77fb39e3aa283810971bbae1_1778005795812"
+_dep_ws_mutex.go.vexy.art.	3600	IN	TXT	"\"00f149123c471495d7efcb130a9f142af12c658c77fb39e3aa283810971bbae1_1778005795812\""
+_dep_ws_mutex.lines.vexy.art.	3600	IN	TXT	"609eeed9ea4c8bd2b2718726d56928bec8c3d15984bb2a2e06da6eee9f475c82_1778006404951"
+_dep_ws_mutex.lines.vexy.art.	3600	IN	TXT	"\"609eeed9ea4c8bd2b2718726d56928bec8c3d15984bb2a2e06da6eee9f475c82_1778006404951\""
+_dep_ws_mutex.vexy.art.	3600	IN	TXT	"fb537e94934bbe071605cbe9df1bd5b5130fa682341fe718c1c9bc875129f1ed_1778024977764"
+_dep_ws_mutex.vexy.art.	3600	IN	TXT	"\"fb537e94934bbe071605cbe9df1bd5b5130fa682341fe718c1c9bc875129f1ed_1778024977764\""
+_dep_ws_mutex.vexy.art.	3600	IN	TXT	"\"2af11c15a6a2ba56468e4b92f84c4ff2d1fe7269e52b7bc96367b0e4b2e20f80_1777895416554\""
+_github-pages-challenge-fontlab.vexy.art.	3600	IN	TXT	"e24cd03623a977eafca668f1b5f825"
+_github-pages-challenge-fontlab.vexy.art.	3600	IN	TXT	"\"e24cd03623a977eafca668f1b5f825\""
+vexy.art.	3600	IN	TXT	"v=spf1 include:_spf-us.ionos.com ~all"
+vexy.art.	3600	IN	TXT	"\"v=spf1 include:_spf-us.ionos.com ~all\""

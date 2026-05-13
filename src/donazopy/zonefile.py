@@ -176,6 +176,54 @@ def _rdata_for_bind(rtype: str, content: str, prio: object) -> str:
     return content
 
 
+def records_from_provider_dicts(
+    provider_records: Iterable[Mapping[str, object]],
+    *,
+    origin: str,
+    default_ttl: int = 3600,
+) -> tuple[NormalizedRecord, ...]:
+    """Convert provider record mappings to NormalizedRecord tuples without dnspython.
+
+    Unlike :func:`build_bind_zone` + :func:`parse_zone_text`, this never raises
+    on misconfigurations such as a CNAME coexisting with another type at the
+    same owner — those situations are exactly what diagnostic tooling needs to
+    inspect. SOA records whose ``content`` lacks the full 7-field rdata are
+    skipped (they are an artifact of providers that expose only the primary
+    nameserver), matching the behavior of :func:`build_bind_zone`.
+    """
+    origin_abs = origin if origin.endswith(".") else f"{origin}."
+    records: list[NormalizedRecord] = []
+    for index, record in enumerate(provider_records):
+        if record.get("disabled"):
+            continue
+        rtype = str(record.get("type") or "").strip().upper()
+        if not rtype:
+            continue
+        owner = _absolute_owner(str(record.get("name") or "@"), origin_abs)
+        ttl = _coerce_int(record.get("ttl"), default_ttl)
+        raw_content = str(record.get("content") or record.get("value") or "").strip()
+        prio = record.get("prio")
+        if prio is None:
+            prio = record.get("priority")
+        if rtype == "SOA":
+            if len(raw_content.split()) < 7:
+                continue
+            value = _normalize_soa_content(raw_content)
+        else:
+            value = _rdata_for_bind(rtype, raw_content, prio)
+        records.append(
+            NormalizedRecord(
+                owner=owner,
+                ttl=ttl,
+                record_class="IN",
+                record_type=rtype,
+                value=value,
+                source_order=index,
+            )
+        )
+    return tuple(sorted(records, key=lambda r: (r.owner, r.record_type, r.value, r.ttl)))
+
+
 def build_bind_zone(
     origin: str,
     records: Iterable[Mapping[str, object]],

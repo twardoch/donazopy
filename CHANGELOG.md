@@ -6,6 +6,17 @@ The format follows Keep a Changelog, and this project uses git-tag-derived seman
 
 ## [Unreleased]
 
+### Fixed — `doctor` no longer crashes on CNAME-and-other-data zones (issue #205 follow-up)
+
+- `analyze_provider_records` / `fix_provider_zone` previously round-tripped provider records through `build_bind_zone` + `records_from_zone_text`, whose strict dnspython parser raises `dns.zonefile.CNAMEAndOtherData` when a CNAME coexists with another type at the same owner — exactly the misconfiguration the doctor needs to *report*. Both functions now use the new `records_from_provider_dicts` converter, which builds `NormalizedRecord` tuples directly from provider dicts (no parser round-trip) and surfaces the conflict as the existing `CNAME_COLLISION` finding.
+- `src/donazopy/zonefile.py`: added `records_from_provider_dicts(records, *, origin, default_ttl=3600)` that reuses the existing `_absolute_owner` / `_rdata_for_bind` / `_normalize_soa_content` helpers and never raises on coexistence misconfigurations.
+
+### Added — `doctor --dmarc-email=ADDR` and automatic external-destination authorization (issue #205 follow-up)
+
+- The `doctor` CLI and `analyze_records` / `plan_fix_records` / `analyze_zone_file` / `fix_zone_file` / `analyze_provider_records` / `fix_provider_zone` Python APIs accept a `dmarc_email` parameter; the synthesized DMARC record uses `rua=mailto:<dmarc_email>` instead of the default `dmarc@<zone>`.
+- New `DMARC_EXTERNAL_DESTINATION` check scans every existing DMARC record's `rua=mailto:` addresses (and the proposed `--dmarc-email`, if any) and emits one finding per external receiver domain — the authorization record that domain must publish so mail servers will actually deliver reports.
+- The provider-aware fix path automatically resolves `DMARC_EXTERNAL_DESTINATION` issues when the receiver domain is hosted on the same provider: `fix_provider_zone` checks `provider.list_zones()`, fetches the receiver zone's records, and adds `"<source>._report._dmarc.<receiver>." IN TXT "v=DMARC1;"` via export → augment → `delete_all_records` + `import_zone` (with a backup written to the same artifacts dir). Receivers on a different provider are left as warnings with the copy-paste record the user must add manually.
+
 ### Added — `donazopy doctor` diagnostic command (issue #205)
 
 - `src/donazopy/doctor.py`: new diagnostic engine with an `Issue` model, a `DoctorReport` aggregator, and a registry of static checks that operate on the existing `NormalizedRecord` model so the same engine analyses provider-hosted zones and local BIND files. Default checks: `NS_MIGRATION_ARTIFACT` (apex NS records pointing at a foreign provider — the IONOS-in-Cloudflare case), `TXT_SEMANTIC_DUPLICATE` (TXT entries that collapse to the same payload once outer quotes and `\"` escapes are normalized — the literal-quote duplicate case), `SPF_MULTIPLE`, `SPF_MISSING` (when MX present), `DMARC_MISSING`, `CAA_MISSING`, `CNAME_AT_APEX`, and `CNAME_COLLISION`.

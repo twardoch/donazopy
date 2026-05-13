@@ -1,0 +1,57 @@
+;;
+;; Domain:     intellifont.com.
+;; Exported:   2026-05-13 19:36:28
+;;
+;; This file is intended for use for informational and archival
+;; purposes ONLY and MUST be edited before use on a production
+;; DNS server.  In particular, you must:
+;;   -- update the SOA record with the correct authoritative name server
+;;   -- update the SOA record with the contact e-mail address information
+;;   -- update the NS record(s) with the authoritative name servers for this domain.
+;;
+;; For further information, please consult the BIND documentation
+;; located on the following website:
+;;
+;; http://www.isc.org/
+;;
+;; And RFC 1035:
+;;
+;; http://www.ietf.org/rfc/rfc1035.txt
+;;
+;; Please note that we do NOT offer technical support for any use
+;; of this zone data, the BIND name server, or any other third-party
+;; DNS software.
+;;
+;; Use at your own risk.
+;; SOA Record
+intellifont.com	3600	IN	SOA	hank.ns.cloudflare.com. dns.cloudflare.com. 2053036758 10000 2400 604800 3600
+
+;; NS Records
+intellifont.com.	86400	IN	NS	hank.ns.cloudflare.com.
+intellifont.com.	86400	IN	NS	ryleigh.ns.cloudflare.com.
+
+;; A Records
+intellifont.com.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+www.intellifont.com.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+
+;; AAAA Records
+intellifont.com.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+www.intellifont.com.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+
+;; CNAME Records
+_14ec31296e6b201b3ec81ef21b9fd94b.intellifont.com.	1	IN	CNAME	2942fb4f2e2f85ca9f8f9c37a38e8e46.78b5ca663a419dcbc6aebe528fff7380.qoihqhi2yj.sectigo.com. ; cf_tags=cf-proxied:false
+autodiscover.intellifont.com.	1	IN	CNAME	adsredir.ionos.info. ; cf_tags=cf-proxied:false
+_dmarc.intellifont.com.	1	IN	CNAME	dmarc.ionos.com. ; cf_tags=cf-proxied:false
+_domainconnect.intellifont.com.	1	IN	CNAME	_domainconnect.ionos.com. ; cf_tags=cf-proxied:false
+s1-ionos._domainkey.intellifont.com.	1	IN	CNAME	s1.dkim.ionos.com. ; cf_tags=cf-proxied:false
+s2-ionos._domainkey.intellifont.com.	1	IN	CNAME	s2.dkim.ionos.com. ; cf_tags=cf-proxied:false
+s42582890._domainkey.intellifont.com.	1	IN	CNAME	s42582890.dkim.ionos.com. ; cf_tags=cf-proxied:false
+
+;; MX Records
+intellifont.com.	3600	IN	MX	10 mx00.ionos.com.
+intellifont.com.	3600	IN	MX	10 mx01.ionos.com.
+
+;; TXT Records
+_dep_ws_mutex.intellifont.com.	3600	IN	TXT	"7e313f9b752612c506cb75edf6b5d843a5ca5ad89f428c6fd4996a000e52b0cb_1777984922488"
+_dep_ws_mutex.intellifont.com.	3600	IN	TXT	"\"7e313f9b752612c506cb75edf6b5d843a5ca5ad89f428c6fd4996a000e52b0cb_1777984922488\""
+intellifont.com.	3600	IN	TXT	"v=spf1 include:_spf-us.ionos.com ~all"

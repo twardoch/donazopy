@@ -114,6 +114,7 @@ uv run donazopy doctor cloudflare/example.com --dotenv-path=.env
 uv run donazopy doctor example.com.zone --origin=example.com.
 uv run donazopy doctor cloudflare/example.com --fix --dotenv-path=.env
 uv run donazopy doctor cloudflare/example.com --json --dotenv-path=.env
+uv run donazopy doctor cloudflare/example.com --fix --dmarc-email=ops@dmarc-service.com --dotenv-path=.env
 ```
 
 ## Command reference
@@ -133,7 +134,7 @@ uv run donazopy doctor cloudflare/example.com --json --dotenv-path=.env
 | `donazopy diff A B [--origin=...] [--dotenv-path=PATH]` | Diff two zones (file paths or provider targets) |
 | `donazopy validate PATH [--origin=...]` | Validate a local BIND zone file |
 | `donazopy normalize PATH [--origin=...] [--output=PATH] [--overwrite]` | Normalize a local BIND zone file |
-| `donazopy doctor TARGET [--fix] [--json] [--output=PATH] [--overwrite] [--origin=...] [--dotenv-path=PATH]` | Diagnose a zone (provider target or local file) for migration artifacts, TXT duplicates, missing email-security records, and CNAME conflicts; with `--fix`, applies safe repairs and writes a backup |
+| `donazopy doctor TARGET [--fix] [--dmarc-email=ADDR] [--json] [--output=PATH] [--overwrite] [--origin=...] [--dotenv-path=PATH]` | Diagnose a zone (provider target or local file) for migration artifacts, TXT duplicates, missing email-security records, and CNAME conflicts; with `--fix`, applies safe repairs and writes a backup. `--dmarc-email=ADDR` plugs `ADDR` into the suggested/applied DMARC `rua=mailto:` and prints the external-destination authorization record when the receiving domain differs from the zone. |
 
 ## Provider matrix
 

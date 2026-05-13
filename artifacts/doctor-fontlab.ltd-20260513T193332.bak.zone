@@ -1,0 +1,58 @@
+;;
+;; Domain:     fontlab.ltd.
+;; Exported:   2026-05-13 19:33:32
+;;
+;; This file is intended for use for informational and archival
+;; purposes ONLY and MUST be edited before use on a production
+;; DNS server.  In particular, you must:
+;;   -- update the SOA record with the correct authoritative name server
+;;   -- update the SOA record with the contact e-mail address information
+;;   -- update the NS record(s) with the authoritative name servers for this domain.
+;;
+;; For further information, please consult the BIND documentation
+;; located on the following website:
+;;
+;; http://www.isc.org/
+;;
+;; And RFC 1035:
+;;
+;; http://www.ietf.org/rfc/rfc1035.txt
+;;
+;; Please note that we do NOT offer technical support for any use
+;; of this zone data, the BIND name server, or any other third-party
+;; DNS software.
+;;
+;; Use at your own risk.
+;; SOA Record
+fontlab.ltd	3600	IN	SOA	hank.ns.cloudflare.com. dns.cloudflare.com. 2053036741 10000 2400 604800 3600
+
+;; NS Records
+fontlab.ltd.	86400	IN	NS	hank.ns.cloudflare.com.
+fontlab.ltd.	86400	IN	NS	ryleigh.ns.cloudflare.com.
+
+;; A Records
+fontlab.ltd.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+www.fontlab.ltd.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+
+;; AAAA Records
+fontlab.ltd.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+www.fontlab.ltd.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+
+;; CNAME Records
+cal.fontlab.ltd.	1	IN	CNAME	ghs.googlehosted.com. ; cf_tags=cf-proxied:false
+_domainconnect.fontlab.ltd.	1	IN	CNAME	_domainconnect.ionos.com. ; cf_tags=cf-proxied:false
+drive.fontlab.ltd.	1	IN	CNAME	ghs.googlehosted.com. ; cf_tags=cf-proxied:false
+mail.fontlab.ltd.	1	IN	CNAME	ghs.googlehosted.com. ; cf_tags=cf-proxied:false
+sites.fontlab.ltd.	1	IN	CNAME	ghs.googlehosted.com. ; cf_tags=cf-proxied:false
+
+;; MX Records
+fontlab.ltd.	3600	IN	MX	10 smtp.google.com.
+
+;; TXT Records
+_dep_ws_mutex.fontlab.ltd.	3600	IN	TXT	"f4543827adf951ed689cfda9a19bb4e8022ad1a43b3553fc95bfa0dc0eb9a40d_1777935505483"
+_dep_ws_mutex.fontlab.ltd.	3600	IN	TXT	"\"f4543827adf951ed689cfda9a19bb4e8022ad1a43b3553fc95bfa0dc0eb9a40d_1777935505483\""
+_dmarc.fontlab.ltd.	1	IN	TXT	"v=DMARC1; p=none; rua=mailto:adcbbc6108e54b9aad5758c72ea994da@dmarc-reports.cloudflare.net"
+fontlab.ltd.	1	IN	TXT	"v=spf1 include:_spf.google.com +all"
+fontlab.ltd.	60	IN	TXT	"zone-ownership-verification-f910e7661441fb69633b477088584fa5f530b5ed26f16c500bd5d18b18b8e97e"
+fontlab.ltd.	60	IN	TXT	"google-site-verification=qZl6SEW4NIQg8U4xTuVm3ZqhC9e6ae_i86HswyEVzIw"
+google._domainkey.fontlab.ltd.	1	IN	TXT	"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwwjaHfo5iMljE77shBVwJFQmRDOdXRtXzrfwx/f6N72xTeVpgBICyHPLdokPsCORGVgZtw5xpYfUcz0sCcaOEUFLzRz5g1qtyAG0bPFagh+GX6Cr4y46RPiwiZ1VJ/ZqMytwlVQpK5RPpmnKnYM+hRMKHSOlGzvyGMCkS6QFCL3n4tmUdjjJBmw+/mA1Ns7hU" "I8FZ3ew/1Ec9gYUggXbTm70xs+meBOIyaUyBNdZlfy1DZ7DgB1lqFT8BjJy3N+QPqYKJqaWxdXN4Ie6kAIPBY0D/quT9c+BiaVn5KuL82CVbwGTEN/Mtsct3CV0SqVCGPuxgiEXCrOW95wB9TLkhwIDAQAB"

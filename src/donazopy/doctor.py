@@ -23,9 +23,8 @@ from typing import Literal
 
 from donazopy.zonefile import (
     NormalizedRecord,
-    build_bind_zone,
+    records_from_provider_dicts,
     records_from_zone_file,
-    records_from_zone_text,
     serialize_records,
     write_text_safely,
 )
@@ -165,6 +164,26 @@ class DoctorReport:
 
 
 _TXT_QUOTE_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
+_DMARC_RUA_RE = re.compile(r"rua\s*=\s*([^;]+)", re.IGNORECASE)
+_MAILTO_RE = re.compile(r"mailto:([^,\s\"]+)", re.IGNORECASE)
+
+
+def _extract_rua_emails(txt_value: str) -> list[str]:
+    """Extract email addresses from the ``rua=mailto:...`` tag of a DMARC TXT value."""
+    payload = _txt_payload(txt_value)
+    if "v=DMARC1" not in payload:
+        return []
+    emails: list[str] = []
+    for tag_value in _DMARC_RUA_RE.findall(payload):
+        emails.extend(email.strip() for email in _MAILTO_RE.findall(tag_value))
+    return emails
+
+
+def _receiver_domain(email: str) -> str | None:
+    if "@" not in email:
+        return None
+    receiver = email.split("@", 1)[1].rstrip(".").lower()
+    return receiver or None
 
 
 def _txt_payload(value: str) -> str:
@@ -218,6 +237,29 @@ class CheckContext:
     domain: str | None
     provider_key: str | None
     origin: str  # absolute origin with trailing dot, e.g. ``example.com.``
+    dmarc_email: str | None = None
+
+
+def _dmarc_value(origin: str, dmarc_email: str | None) -> str:
+    """Return the canonical TXT value for a monitoring-only DMARC record."""
+    email = dmarc_email or f"dmarc@{origin.rstrip('.')}"
+    return f'"v=DMARC1; p=none; rua=mailto:{email}"'
+
+
+def _external_dmarc_note(origin: str, dmarc_email: str | None) -> str:
+    """Return a guidance note when dmarc_email's domain differs from the zone."""
+    if not dmarc_email or "@" not in dmarc_email:
+        return ""
+    receiver_domain = dmarc_email.split("@", 1)[1].rstrip(".").lower()
+    zone_domain = origin.rstrip(".").lower()
+    if not receiver_domain or receiver_domain == zone_domain:
+        return ""
+    return (
+        f" External destination: receivers will only deliver DMARC reports to "
+        f"{dmarc_email!r} if {receiver_domain!r} publishes "
+        f"'{zone_domain}._report._dmarc.{receiver_domain}. IN TXT \"v=DMARC1;\"' "
+        f"to authorize reception."
+    )
 
 
 def check_migration_ns(ctx: CheckContext) -> list[Issue]:
@@ -366,7 +408,9 @@ def check_missing_spf(ctx: CheckContext) -> list[Issue]:
 def check_missing_dmarc(ctx: CheckContext) -> list[Issue]:
     if not _has_mx(ctx.records) or _has_dmarc(ctx.records, ctx.origin):
         return []
-    suggested = f'_dmarc.{ctx.origin} 3600 IN TXT "v=DMARC1; p=none; rua=mailto:dmarc@{ctx.origin.rstrip(".")}"'
+    value = _dmarc_value(ctx.origin, ctx.dmarc_email)
+    suggested = f"_dmarc.{ctx.origin} 3600 IN TXT {value}"
+    extra = _external_dmarc_note(ctx.origin, ctx.dmarc_email)
     return [
         Issue(
             code="DMARC_MISSING",
@@ -376,7 +420,7 @@ def check_missing_dmarc(ctx: CheckContext) -> list[Issue]:
             details=(
                 "DMARC tells receivers what to do with messages that fail SPF/DKIM. "
                 "Starting with a monitoring-only policy (p=none) is safe and produces "
-                "actionable reports."
+                "actionable reports." + extra
             ),
             affected=(f"_dmarc.{ctx.origin}",),
             fixable=True,
@@ -454,6 +498,62 @@ def check_cname_conflicts(ctx: CheckContext) -> list[Issue]:
     return issues
 
 
+def check_dmarc_external_destination(ctx: CheckContext) -> list[Issue]:
+    """Flag DMARC `rua=mailto:` addresses on external domains.
+
+    Receiving mail servers drop DMARC reports unless the recipient domain
+    publishes an authorization TXT record at
+    ``<sender>._report._dmarc.<receiver>``. This check looks at every existing
+    DMARC record AND at the ``dmarc_email`` proposed by the caller (when the
+    zone is missing DMARC) and emits one issue per (sender, external_receiver)
+    pair. The provider-aware fix path resolves it automatically when the
+    receiver zone is managed by the same provider.
+    """
+    zone_domain = ctx.origin.rstrip(".").lower()
+    dmarc_owner = f"_dmarc.{ctx.origin}".lower()
+    receivers: dict[str, str] = {}  # receiver -> source email that flagged it
+    for record in ctx.records:
+        if record.record_type != "TXT" or record.owner.lower() != dmarc_owner:
+            continue
+        for email in _extract_rua_emails(record.value):
+            receiver = _receiver_domain(email)
+            if receiver and receiver != zone_domain:
+                receivers.setdefault(receiver, email)
+    if ctx.dmarc_email and not _has_dmarc(ctx.records, ctx.origin):
+        receiver = _receiver_domain(ctx.dmarc_email)
+        if receiver and receiver != zone_domain:
+            receivers.setdefault(receiver, ctx.dmarc_email)
+    issues: list[Issue] = []
+    for receiver, email in receivers.items():
+        auth_record = f'{zone_domain}._report._dmarc.{receiver}. 3600 IN TXT "v=DMARC1;"'
+        issues.append(
+            Issue(
+                code="DMARC_EXTERNAL_DESTINATION",
+                severity="warning",
+                category="email",
+                message=(
+                    f"DMARC rua address {email!r} is on the external domain "
+                    f"{receiver!r}; without an authorization record on that domain, "
+                    "receivers will silently drop the reports."
+                ),
+                details=(
+                    "RFC 7489 §7.1 requires the receiving domain to publish a TXT "
+                    "record proving it accepts DMARC reports for this zone. When "
+                    "--fix runs and the receiver is managed by the same provider, "
+                    "donazopy can add the record automatically."
+                ),
+                affected=(receiver,),
+                fixable=True,
+                fix_description=(
+                    f"Publish the authorization TXT on {receiver!r} so reports for "
+                    f"{zone_domain!r} are accepted."
+                ),
+                suggested_record=auth_record,
+            )
+        )
+    return issues
+
+
 DEFAULT_CHECKS = (
     check_migration_ns,
     check_txt_semantic_duplicates,
@@ -462,6 +562,7 @@ DEFAULT_CHECKS = (
     check_missing_dmarc,
     check_missing_caa,
     check_cname_conflicts,
+    check_dmarc_external_destination,
 )
 
 
@@ -477,6 +578,7 @@ def analyze_records(
     provider_key: str | None,
     origin: str | None = None,
     checks: Iterable = DEFAULT_CHECKS,
+    dmarc_email: str | None = None,
 ) -> list[Issue]:
     """Run every check against ``records`` and return the aggregated issues."""
     if origin is None:
@@ -486,7 +588,13 @@ def analyze_records(
         origin = domain.rstrip(".") + "."
     if not origin.endswith("."):
         origin = origin + "."
-    ctx = CheckContext(records=records, domain=domain, provider_key=provider_key, origin=origin)
+    ctx = CheckContext(
+        records=records,
+        domain=domain,
+        provider_key=provider_key,
+        origin=origin,
+        dmarc_email=dmarc_email,
+    )
     issues: list[Issue] = []
     for check in checks:
         issues.extend(check(ctx))
@@ -498,6 +606,7 @@ def plan_fix_records(
     issues: Iterable[Issue],
     *,
     origin: str,
+    dmarc_email: str | None = None,
 ) -> tuple[tuple[NormalizedRecord, ...], list[Issue]]:
     """Apply auto-fixable issues to ``records`` and return (new_records, fixed_issues).
 
@@ -542,7 +651,7 @@ def plan_fix_records(
         elif issue.code == "DMARC_MISSING":
             # Synthesize a monitoring-only DMARC TXT record.
             owner = f"_dmarc.{origin}"
-            value = f'"v=DMARC1; p=none; rua=mailto:dmarc@{origin.rstrip(".")}"'
+            value = _dmarc_value(origin, dmarc_email)
             new = NormalizedRecord(
                 owner=owner,
                 ttl=3600,
@@ -561,12 +670,23 @@ def plan_fix_records(
 # ---------------------------------------------------------------------------
 
 
-def analyze_zone_file(path: Path, *, origin: str | None = None) -> DoctorReport:
+def analyze_zone_file(
+    path: Path,
+    *,
+    origin: str | None = None,
+    dmarc_email: str | None = None,
+) -> DoctorReport:
     """Analyze a local zone file and return a :class:`DoctorReport`."""
     records = records_from_zone_file(path, origin)
     effective_origin = (origin or path.stem).rstrip(".") + "."
     domain = effective_origin.rstrip(".") or None
-    issues = analyze_records(records, domain=domain, provider_key=None, origin=effective_origin)
+    issues = analyze_records(
+        records,
+        domain=domain,
+        provider_key=None,
+        origin=effective_origin,
+        dmarc_email=dmarc_email,
+    )
     return DoctorReport(target=str(path), domain=domain, provider_key=None, issues=issues)
 
 
@@ -575,15 +695,23 @@ def fix_zone_file(
     *,
     origin: str | None = None,
     overwrite: bool = False,
+    dmarc_email: str | None = None,
 ) -> DoctorReport:
     """Analyze a zone file, apply auto-fixes, write a backup + cleaned output."""
+    del overwrite  # The cleaned output always replaces the source; a .bak sibling is written first.
     records = records_from_zone_file(path, origin)
     effective_origin = (origin or path.stem).rstrip(".") + "."
     domain = effective_origin.rstrip(".") or None
-    issues = analyze_records(records, domain=domain, provider_key=None, origin=effective_origin)
-    new_records, fixed = plan_fix_records(records, issues, origin=effective_origin)
+    issues = analyze_records(
+        records,
+        domain=domain,
+        provider_key=None,
+        origin=effective_origin,
+        dmarc_email=dmarc_email,
+    )
+    new_records, fixed = plan_fix_records(records, issues, origin=effective_origin, dmarc_email=dmarc_email)
     backup_path = _write_backup(path, serialize_records(records))
-    write_text_safely(path, serialize_records(new_records), overwrite=overwrite or True)
+    write_text_safely(path, serialize_records(new_records), overwrite=True)
     return DoctorReport(
         target=str(path),
         domain=domain,
@@ -599,12 +727,23 @@ def analyze_provider_records(
     *,
     domain: str,
     provider_key: str,
+    dmarc_email: str | None = None,
 ) -> DoctorReport:
-    """Analyze provider records (the dict shape returned by ``list_records``)."""
+    """Analyze provider records (the dict shape returned by ``list_records``).
+
+    Uses :func:`records_from_provider_dicts` so misconfigurations such as a
+    CNAME coexisting with another type at the same owner are reported as
+    issues rather than crashing the parser.
+    """
     origin = domain.rstrip(".") + "."
-    zone_text = build_bind_zone(origin, provider_records)
-    records = records_from_zone_text(zone_text, origin)
-    issues = analyze_records(records, domain=domain, provider_key=provider_key, origin=origin)
+    records = records_from_provider_dicts(provider_records, origin=origin)
+    issues = analyze_records(
+        records,
+        domain=domain,
+        provider_key=provider_key,
+        origin=origin,
+        dmarc_email=dmarc_email,
+    )
     return DoctorReport(
         target=f"{provider_key}/{domain}",
         domain=domain,
@@ -613,25 +752,81 @@ def analyze_provider_records(
     )
 
 
+def _ensure_external_dmarc_auth(
+    provider,
+    *,
+    source_domain: str,
+    receiver_domain: str,
+    backup_dir: Path,
+) -> Path | None:
+    """Ensure ``receiver_domain`` (on ``provider``) publishes the DMARC report
+    authorization TXT record for ``source_domain``.
+
+    Returns the backup path when the receiver zone was rewritten, ``None`` when
+    the record already existed.
+    """
+    source_label = source_domain.rstrip(".")
+    receiver_label = receiver_domain.rstrip(".")
+    auth_owner = f"{source_label}._report._dmarc.{receiver_label}."
+    receiver_records = list(provider.list_records(receiver_label))
+    for record in receiver_records:
+        if str(record.get("type", "")).upper() != "TXT":
+            continue
+        name = str(record.get("name", "")).rstrip(".").lower()
+        if name == auth_owner.rstrip(".").lower():
+            payload = _txt_payload(str(record.get("content", "")))
+            if "v=DMARC1" in payload:
+                return None
+    origin = receiver_label + "."
+    current = records_from_provider_dicts(receiver_records, origin=origin)
+    new = NormalizedRecord(
+        owner=auth_owner,
+        ttl=3600,
+        record_class="IN",
+        record_type="TXT",
+        value='"v=DMARC1;"',
+        source_order=len(current),
+    )
+    augmented = tuple(sorted([*current, new]))
+    zone_text = provider.export_zone(receiver_label)
+    backup_path = _write_backup(
+        backup_dir / f"doctor-external-{receiver_label}-{_timestamp()}.zone",
+        zone_text,
+        create_parents=True,
+    )
+    provider.delete_all_records(receiver_label)
+    provider.import_zone(receiver_label, serialize_records(augmented))
+    return backup_path
+
+
 def fix_provider_zone(
     provider,
     *,
     domain: str,
     provider_key: str,
     backup_dir: Path | None = None,
+    dmarc_email: str | None = None,
 ) -> DoctorReport:
     """Analyze a provider zone, then export/clean/delete-all/import to apply fixes.
 
     The provider must satisfy the standard DNS protocol methods
-    (``export_zone``, ``import_zone``, ``delete_all_records``).
+    (``export_zone``, ``import_zone``, ``delete_all_records``, ``list_records``).
     """
     origin = domain.rstrip(".") + "."
+    provider_records = list(provider.list_records(domain))
     zone_text = provider.export_zone(domain)
-    records = records_from_zone_text(zone_text, origin)
-    issues = analyze_records(records, domain=domain, provider_key=provider_key, origin=origin)
-    new_records, fixed = plan_fix_records(records, issues, origin=origin)
+    records = records_from_provider_dicts(provider_records, origin=origin)
+    issues = analyze_records(
+        records,
+        domain=domain,
+        provider_key=provider_key,
+        origin=origin,
+        dmarc_email=dmarc_email,
+    )
+    new_records, fixed = plan_fix_records(records, issues, origin=origin, dmarc_email=dmarc_email)
+    effective_backup_dir = backup_dir or Path("artifacts")
     backup_path = _write_backup(
-        (backup_dir or Path("artifacts")) / f"doctor-{domain}-{_timestamp()}.zone",
+        effective_backup_dir / f"doctor-{domain}-{_timestamp()}.zone",
         zone_text,
         create_parents=True,
     )
@@ -640,6 +835,30 @@ def fix_provider_zone(
         # Replace the live zone with the cleaned record set.
         provider.delete_all_records(domain)
         provider.import_zone(domain, cleaned_text)
+
+    # Resolve DMARC external-destination issues whose receiver is on the same provider.
+    external_issues = [issue for issue in issues if issue.code == "DMARC_EXTERNAL_DESTINATION"]
+    if external_issues:
+        try:
+            managed = {zone.rstrip(".").lower() for zone in provider.list_zones()}
+        except Exception:
+            managed = set()
+        for issue in external_issues:
+            receiver = issue.affected[0]
+            if receiver not in managed:
+                continue
+            try:
+                _ensure_external_dmarc_auth(
+                    provider,
+                    source_domain=domain,
+                    receiver_domain=receiver,
+                    backup_dir=effective_backup_dir,
+                )
+            except Exception:
+                # Surface as unresolved by skipping the "fixed" mark; the original
+                # issue stays in the report so the user sees what still needs doing.
+                continue
+            fixed.append(issue)
     return DoctorReport(
         target=f"{provider_key}/{domain}",
         domain=domain,

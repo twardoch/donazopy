@@ -1,0 +1,60 @@
+;;
+;; Domain:     fontlab.me.
+;; Exported:   2026-05-13 19:33:43
+;;
+;; This file is intended for use for informational and archival
+;; purposes ONLY and MUST be edited before use on a production
+;; DNS server.  In particular, you must:
+;;   -- update the SOA record with the correct authoritative name server
+;;   -- update the SOA record with the contact e-mail address information
+;;   -- update the NS record(s) with the authoritative name servers for this domain.
+;;
+;; For further information, please consult the BIND documentation
+;; located on the following website:
+;;
+;; http://www.isc.org/
+;;
+;; And RFC 1035:
+;;
+;; http://www.ietf.org/rfc/rfc1035.txt
+;;
+;; Please note that we do NOT offer technical support for any use
+;; of this zone data, the BIND name server, or any other third-party
+;; DNS software.
+;;
+;; Use at your own risk.
+;; SOA Record
+fontlab.me	3600	IN	SOA	hank.ns.cloudflare.com. dns.cloudflare.com. 2053036742 10000 2400 604800 3600
+
+;; NS Records
+fontlab.me.	86400	IN	NS	hank.ns.cloudflare.com.
+fontlab.me.	86400	IN	NS	ryleigh.ns.cloudflare.com.
+
+;; A Records
+fontlab.me.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+www.fontlab.me.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+
+;; AAAA Records
+fontlab.me.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+www.fontlab.me.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+
+;; CNAME Records
+autodiscover.fontlab.me.	1	IN	CNAME	adsredir.1and1.info. ; cf_tags=cf-proxied:false
+_domainconnect.fontlab.me.	1	IN	CNAME	_domainconnect.ionos.com. ; cf_tags=cf-proxied:false
+k2._domainkey.fontlab.me.	3600	IN	CNAME	dkim2.mcsv.net. ; cf_tags=cf-proxied:false
+k3._domainkey.fontlab.me.	3600	IN	CNAME	dkim3.mcsv.net. ; cf_tags=cf-proxied:false
+litesrv._domainkey.fontlab.me.	1	IN	CNAME	litesrv._domainkey.mlsend.com. ; cf_tags=cf-proxied:false
+
+;; MX Records
+fontlab.me.	3600	IN	MX	10 mx01.1and1.com.
+fontlab.me.	3600	IN	MX	10 mx00.1and1.com.
+
+;; TXT Records
+_dep_ws_mutex.fontlab.me.	3600	IN	TXT	"6537a82db8cab0fd35ff1c91f2d5efb013c97a37ee00cc80fd1ba785a214e7d0_1777935547456"
+_dep_ws_mutex.fontlab.me.	3600	IN	TXT	"\"6537a82db8cab0fd35ff1c91f2d5efb013c97a37ee00cc80fd1ba785a214e7d0_1777935547456\""
+_dmarc.fontlab.me.	3600	IN	TXT	"v=DMARC1; p=none;"
+_dmarc.fontlab.me.	3600	IN	TXT	"\"v=DMARC1; p=none;\""
+fontlab.me.	3600	IN	TXT	"v=spf1 a mx include:_spf.mlsend.com ?all"
+fontlab.me.	3600	IN	TXT	"mailerlite-domain-verification=f94b3358266c85b1b1a4a91429141d7df6c3bda4"
+fontlab.me.	3600	IN	TXT	"\"mailerlite-domain-verification=f94b3358266c85b1b1a4a91429141d7df6c3bda4\""
+fontlab.me.	3600	IN	TXT	"\"v=spf1 a mx include:_spf.mlsend.com ?all\""

@@ -319,6 +319,7 @@ class Donazopy:
         json: bool = False,
         output: str | None = None,
         overwrite: bool = False,
+        dmarc_email: str | None = None,
     ) -> str | dict[str, object]:
         """Diagnose a zone (provider target or local zone file) for common problems.
 
@@ -327,19 +328,33 @@ class Donazopy:
         TXT records, and add a monitoring-only DMARC record when MX records are
         present. Other findings (missing SPF/CAA, CNAME conflicts, multiple SPF)
         are reported with copy-paste instructions.
+
+        ``--dmarc-email=ADDR`` plugs ``ADDR`` into the suggested/applied DMARC
+        record (``rua=mailto:ADDR``). When ``ADDR``'s domain differs from the
+        zone, the report includes the external-destination authorization TXT
+        record the receiving domain must publish so mail servers will deliver
+        reports.
         """
         if looks_like_path(target):
             path = Path(target)
-            report = fix_zone_file(path, origin=origin, overwrite=overwrite) if fix else analyze_zone_file(path, origin=origin)
+            report = (
+                fix_zone_file(path, origin=origin, overwrite=overwrite, dmarc_email=dmarc_email)
+                if fix
+                else analyze_zone_file(path, origin=origin, dmarc_email=dmarc_email)
+            )
         else:
             key, parsed = self._resolve_target(target)
             domain = self._require_domain(parsed)
             provider = self._dns_provider(key, dotenv_path)
             if fix:
-                report = fix_provider_zone(provider, domain=domain, provider_key=key)
+                report = fix_provider_zone(
+                    provider, domain=domain, provider_key=key, dmarc_email=dmarc_email
+                )
             else:
                 records = provider.list_records(domain)
-                report = analyze_provider_records(list(records), domain=domain, provider_key=key)
+                report = analyze_provider_records(
+                    list(records), domain=domain, provider_key=key, dmarc_email=dmarc_email
+                )
         if output is not None:
             write_text_safely(Path(output), report.format_text(), overwrite=overwrite)
         if json:

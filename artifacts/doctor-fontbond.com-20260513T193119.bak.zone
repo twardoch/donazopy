@@ -1,0 +1,56 @@
+;;
+;; Domain:     fontbond.com.
+;; Exported:   2026-05-13 19:31:19
+;;
+;; This file is intended for use for informational and archival
+;; purposes ONLY and MUST be edited before use on a production
+;; DNS server.  In particular, you must:
+;;   -- update the SOA record with the correct authoritative name server
+;;   -- update the SOA record with the contact e-mail address information
+;;   -- update the NS record(s) with the authoritative name servers for this domain.
+;;
+;; For further information, please consult the BIND documentation
+;; located on the following website:
+;;
+;; http://www.isc.org/
+;;
+;; And RFC 1035:
+;;
+;; http://www.ietf.org/rfc/rfc1035.txt
+;;
+;; Please note that we do NOT offer technical support for any use
+;; of this zone data, the BIND name server, or any other third-party
+;; DNS software.
+;;
+;; Use at your own risk.
+;; SOA Record
+fontbond.com	3600	IN	SOA	hank.ns.cloudflare.com. dns.cloudflare.com. 2053036727 10000 2400 604800 3600
+
+;; NS Records
+fontbond.com.	86400	IN	NS	hank.ns.cloudflare.com.
+fontbond.com.	86400	IN	NS	ryleigh.ns.cloudflare.com.
+
+;; A Records
+fontbond.com.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+www.fontbond.com.	1	IN	A	74.208.236.175 ; cf_tags=cf-proxied:true
+
+;; AAAA Records
+fontbond.com.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+www.fontbond.com.	1	IN	AAAA	2607:f1c0:100f:f000::220 ; cf_tags=cf-proxied:true
+
+;; CNAME Records
+autodiscover.fontbond.com.	1	IN	CNAME	adsredir.ionos.info. ; cf_tags=cf-proxied:false
+_dmarc.fontbond.com.	1	IN	CNAME	dmarc.ionos.com. ; cf_tags=cf-proxied:false
+_domainconnect.fontbond.com.	1	IN	CNAME	_domainconnect.ionos.com. ; cf_tags=cf-proxied:false
+s1-ionos._domainkey.fontbond.com.	1	IN	CNAME	s1.dkim.ionos.com. ; cf_tags=cf-proxied:false
+s2-ionos._domainkey.fontbond.com.	1	IN	CNAME	s2.dkim.ionos.com. ; cf_tags=cf-proxied:false
+
+;; MX Records
+fontbond.com.	3600	IN	MX	10 mx00.ionos.com.
+fontbond.com.	3600	IN	MX	10 mx01.ionos.com.
+
+;; TXT Records
+_dep_ws_mutex.fontbond.com.	3600	IN	TXT	"0b9186dfe55368f29ec27fbd66e29a6c4f5bf88e8dc7a9b592da63eefc2c38bf_1777931767486"
+_dep_ws_mutex.fontbond.com.	3600	IN	TXT	"\"0b9186dfe55368f29ec27fbd66e29a6c4f5bf88e8dc7a9b592da63eefc2c38bf_1777931767486\""
+fontbond.com.	3600	IN	TXT	"v=spf1 include:_spf-us.ionos.com ~all"
+fontbond.com.	3600	IN	TXT	"\"v=spf1 include:_spf-us.ionos.com ~all\""
