@@ -22,7 +22,12 @@ from collections.abc import Mapping, Sequence
 
 import httpx
 
-from donazopy.providers.base import DNS_AND_REGISTRAR, ProviderAPIError, ProviderSpec
+from donazopy.providers.base import (
+    DNS_AND_REGISTRAR,
+    ProviderAPIError,
+    ProviderSpec,
+    http_request_with_retry,
+)
 from donazopy.zonefile import NormalizedRecord, build_bind_zone, records_from_zone_text
 
 PROVIDER = ProviderSpec(
@@ -177,7 +182,9 @@ class JokerProvider:
     def _login(self) -> str:
         if self._auth_sid:
             return self._auth_sid
-        response = self._client.post(f"{self._api_base}/login", data={"api-key": self._api_key})
+        response = http_request_with_retry(
+            self._client, "POST", f"{self._api_base}/login", data={"api-key": self._api_key}
+        )
         headers, _ = _parse_dmapi_response(response, action="login")
         sid = headers.get("auth-sid")
         if not sid:
@@ -186,7 +193,12 @@ class JokerProvider:
         return sid
 
     def _call(self, action: str, params: Mapping[str, str]) -> str:
-        response = self._client.post(f"{self._api_base}/{action}", data={"auth-sid": self._login(), **params})
+        response = http_request_with_retry(
+            self._client,
+            "POST",
+            f"{self._api_base}/{action}",
+            data={"auth-sid": self._login(), **params},
+        )
         _, body = _parse_dmapi_response(response, action=action)
         return body
 

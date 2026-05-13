@@ -3,14 +3,46 @@
 from __future__ import annotations
 
 import os
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+import httpx
 from dotenv import dotenv_values, find_dotenv
 
 from donazopy.models import ProviderCapability, ProviderSpec
+
+TRANSIENT_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+_RETRY_MAX_ATTEMPTS = 4
+_RETRY_BASE_DELAY_SECONDS = 1.0
+
+
+def http_request_with_retry(
+    client: httpx.Client,
+    method: str,
+    url: str,
+    **kwargs: object,
+) -> httpx.Response:
+    """Send an HTTP request, retrying transient 429 / 5xx responses with exponential backoff.
+
+    Used by every provider adapter so bulk runs (``donazopy copy cloudflare/* …``,
+    ``doctor cloudflare/*``) survive transient infrastructure blips and per-API
+    rate limits without aborting on the first failure.
+    """
+    last_response: httpx.Response | None = None
+    for attempt in range(_RETRY_MAX_ATTEMPTS + 1):
+        response = client.request(method, url, **kwargs)  # type: ignore[arg-type]
+        last_response = response
+        if response.status_code not in TRANSIENT_STATUS_CODES:
+            return response
+        if attempt == _RETRY_MAX_ATTEMPTS:
+            break
+        time.sleep(_RETRY_BASE_DELAY_SECONDS * (2 ** attempt))
+    assert last_response is not None
+    return last_response
+
 
 ZONE_READ = ProviderCapability("zone_read", "Read hosted DNS zones and records.")
 ZONE_WRITE = ProviderCapability("zone_write", "Create, update, delete, or import hosted DNS records.")

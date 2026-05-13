@@ -7,7 +7,12 @@ from collections.abc import Mapping, Sequence
 
 import httpx
 
-from donazopy.providers.base import DNS_AND_REGISTRAR_READ, ProviderAPIError, ProviderSpec
+from donazopy.providers.base import (
+    DNS_AND_REGISTRAR_READ,
+    ProviderAPIError,
+    ProviderSpec,
+    http_request_with_retry,
+)
 from donazopy.zonefile import NormalizedRecord, build_bind_zone, records_from_zone_text
 
 PROVIDER = ProviderSpec(
@@ -206,8 +211,13 @@ class IonosProvider:
         params: Mapping[str, str | int] | None = None,
         json: object | None = None,
     ) -> object:
-        response = self._client.request(
-            method, f"{self.api_base}{path}", headers=self._headers, params=params, json=json
+        response = http_request_with_retry(
+            self._client,
+            method,
+            f"{self.api_base}{path}",
+            headers=self._headers,
+            params=params,
+            json=json,
         )
         if response.status_code >= 400:
             raise ProviderAPIError(_ionos_error_message(response))

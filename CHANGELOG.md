@@ -28,7 +28,7 @@ The format follows Keep a Changelog, and this project uses git-tag-derived seman
 
 ### Fixed — bulk runs (`copy cloudflare/* …`, `doctor cloudflare/*`) survive transient errors
 
-- Cloudflare 502 Bad Gateway and similar transient infrastructure errors (429, 500, 502, 503, 504) now retry up to 4 times with exponential backoff (1s, 2s, 4s, 8s) instead of aborting on the first failure. Applies to every Cloudflare HTTP call (`_request` and the direct `export_zone` call path).
+- Promoted the retry helper to `donazopy.providers.base.http_request_with_retry` and applied it across **every** provider adapter — Cloudflare, IONOS, GoDaddy, and Joker. Transient infrastructure errors (429 rate-limit, 500 / 502 / 503 / 504) now retry up to 4 times with exponential backoff (1s → 2s → 4s → 8s) instead of aborting on the first failure. Real-world unblock: Cloudflare 502 Bad Gateway and the IONOS `API rate limit exceeded` (429) that aborted bulk migrations in mid-loop.
 - The wildcard `copy` and `doctor` loops now catch `ProviderAPIError` per zone and continue with the next one. The result includes a `failures: [{domain, error}, ...]` entry so bulk runs surface what failed without aborting the whole loop. For `doctor`, the human-readable output appends a `Failures (N): …` section after the last report.
 
 ### Fixed — TXT records (and DMARC auth records) now created with canonical outer quotes

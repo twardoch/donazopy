@@ -15,7 +15,12 @@ from collections.abc import Mapping, Sequence
 
 import httpx
 
-from donazopy.providers.base import DNS_AND_REGISTRAR, ProviderAPIError, ProviderSpec
+from donazopy.providers.base import (
+    DNS_AND_REGISTRAR,
+    ProviderAPIError,
+    ProviderSpec,
+    http_request_with_retry,
+)
 from donazopy.zonefile import NormalizedRecord, build_bind_zone, records_from_zone_text
 
 PROVIDER = ProviderSpec(
@@ -100,8 +105,11 @@ class GoDaddyProvider:
         deleted = 0
         failed = 0
         for rtype, name in targets:
-            response = self._client.request(
-                "DELETE", f"{self.api_base}/domains/{domain.rstrip('.')}/records/{rtype}/{name}", headers=self._headers
+            response = http_request_with_retry(
+                self._client,
+                "DELETE",
+                f"{self.api_base}/domains/{domain.rstrip('.')}/records/{rtype}/{name}",
+                headers=self._headers,
             )
             if response.status_code >= 400:
                 failed += 1
@@ -171,7 +179,9 @@ class GoDaddyProvider:
         headers = dict(self._headers)
         if json is not None:
             headers["Content-Type"] = "application/json"
-        response = self._client.request(method, f"{self.api_base}{path}", headers=headers, params=params, json=json)
+        response = http_request_with_retry(
+            self._client, method, f"{self.api_base}{path}", headers=headers, params=params, json=json
+        )
         if response.status_code >= 400:
             raise ProviderAPIError(_godaddy_error_message(response))
         if not response.content:

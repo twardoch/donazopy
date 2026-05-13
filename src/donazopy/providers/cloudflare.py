@@ -3,36 +3,18 @@
 from __future__ import annotations
 
 import os
-import time
 from collections.abc import Mapping, Sequence
 
 import httpx
 
-from donazopy.providers.base import DNS_AND_REGISTRAR_READ, ProviderAPIError, ProviderSpec
-
-_TRANSIENT_STATUS_CODES = {429, 500, 502, 503, 504}
-_MAX_RETRIES = 4
-_RETRY_BASE_DELAY_SECONDS = 1.0
-
-
-def _request_with_retry(
-    client: httpx.Client,
-    method: str,
-    url: str,
-    **kwargs: object,
-) -> httpx.Response:
-    """Send an HTTP request, retrying transient 5xx / 429 responses with backoff."""
-    last_response: httpx.Response | None = None
-    for attempt in range(_MAX_RETRIES + 1):
-        response = client.request(method, url, **kwargs)  # type: ignore[arg-type]
-        last_response = response
-        if response.status_code not in _TRANSIENT_STATUS_CODES:
-            return response
-        if attempt == _MAX_RETRIES:
-            break
-        time.sleep(_RETRY_BASE_DELAY_SECONDS * (2 ** attempt))
-    assert last_response is not None
-    return last_response
+from donazopy.providers.base import (
+    DNS_AND_REGISTRAR_READ,
+    ProviderAPIError,
+    ProviderSpec,
+)
+from donazopy.providers.base import (
+    http_request_with_retry as _request_with_retry,
+)
 
 PROVIDER = ProviderSpec(
     key="cloudflare",
@@ -176,7 +158,8 @@ class CloudflareProvider:
     def delete_record(self, domain: str, record_id: str) -> Mapping[str, object]:
         """Delete a single DNS record by its Cloudflare id."""
         zone = self._zone(domain)
-        response = self._client.request(
+        response = _request_with_retry(
+            self._client,
             "DELETE",
             f"{self.api_base}/zones/{zone['id']}/dns_records/{record_id}",
             headers=self._headers,
