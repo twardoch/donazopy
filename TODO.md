@@ -2,6 +2,16 @@
 
 Verified-solved items are moved into `CHANGELOG.md` under `[Unreleased]` after each implementation loop.
 
+## Doctor (issue #205) — follow-up
+
+Initial v1 shipped under `[Unreleased]` in CHANGELOG. Follow-up tasks:
+
+- [ ] Add live-DNS checks (parent-vs-zone NS comparison, dangling CNAME resolution) gated behind `--live`.
+- [ ] Add provider-specific selective `delete_record(...)` instead of the current export → delete_all → import for cleaner partial fixes (Cloudflare API supports this directly).
+- [ ] Add fixture-based golden-output tests for the human-readable report formatter.
+- [ ] Add `--severity` and `--category` filters to the CLI subcommand.
+- [ ] Add DKIM presence inference from common selectors (`default._domainkey`, `google._domainkey`).
+
 ## Foundation
 
 - [ ] Confirm project name, package name, and public CLI command before first release.
@@ -53,20 +63,3 @@ Verified-solved items are moved into `CHANGELOG.md` under `[Unreleased]` after e
 - [ ] Document `materialx` usage in developer tooling notes and confirm it is listed in the docs dependency group.
 - [ ] Keep `CHANGELOG.md` updated by moving verified-solved TODO items into `[Unreleased]` entries after each implementation loop.
 
-## Done (moved to CHANGELOG.md)
-
-- [x] Operational GoDaddy adapter (`src/donazopy/providers/godaddy.py`): domain list, record listing, BIND export, record import (PATCH/append), `delete_all_records` per type+name, registrar nameserver read and assignment.
-- [x] Operational IONOS adapter (`src/donazopy/providers/ionos.py`): zones, records, BIND export/import, delete-all, apex NS read; `assign_nameservers` raises "not supported".
-- [x] Operational Joker.com DMAPI adapter (`src/donazopy/providers/joker.py`): login/session, domain list, virtual DNS zone get/put with Joker↔BIND conversion, apex NS read, `assign_nameservers` via `domain-modify`; credentials switched to `JOKER_API_KEY`.
-- [x] `build_bind_zone` helper in `src/donazopy/zonefile.py` for generating parseable BIND text from provider record mappings.
-- [x] Mocked HTTP tests for the GoDaddy, IONOS, and Joker adapters; registry/CLI/docs updated to expose four operational providers.
-- [x] Unified target notation (`src/donazopy/target.py`) with `parse_target` / `resolve_provider_key` / `looks_like_path`.
-- [x] Simplified and renamed CLI command set: `status`, `records`, `export`, `import-zone`, `copy`, `nameservers`, `diff`, `validate`, `normalize`; old `provider*` / `zone-*` / `validate-zone` commands removed.
-- [x] `export` / `copy` `--skip-ns` and `--skip-types` filtering; `copy --replace` via `delete_all_records`.
-- [x] Cloudflare `list_zones`, `delete_all_records`, `assign_nameservers` (raises "not supported").
-- [x] Zone-file helpers: `filter_zone_text`, `filter_records`, `records_from_zone_text`.
-- [x] ProtoDocs + MaterialX documentation site (`mkdocs/`, `src_docs/md/`, `docs/`, `docs.sh`, docs dependency group in `pyproject.toml`).
-- [x] Hatch/uv package scaffold, Fire CLI, `python-dotenv` credential loading and redaction.
-- [x] Cloudflare DNS record listing, BIND zone export/import, nameserver read.
-- [x] Zone-file parsing, validation, normalization, deterministic dump, diff helpers.
-- [x] 12-chapter spec under `spec/`, build/publish scripts, Pyright configuration and initial test suite.

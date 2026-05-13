@@ -1,0 +1,210 @@
+# donazopy
+
+Python CLI tool for DNS zone management and provider operations. Supports local BIND zone files and real API interactions with cloud DNS providers.
+
+## Purpose
+
+`donazopy` (pronounced "don't-zopy") provides a unified interface for:
+
+- **Local zone file operations**: validate, normalize, and compare BIND-format zone files
+- **Provider DNS management**: list/export/import records, copy zones between providers, manage hosted zones
+- **Nameserver operations**: read and assign nameserver delegation
+
+Operational providers: Cloudflare, GoDaddy, IONOS, Joker.com (DMAPI).
+
+## Installation
+
+```bash
+uv sync
+```
+
+Requires Python 3.12+, uses Hatch + hatch-vcs for git-tag-derived versions.
+
+## Credentials
+
+Credentials load via `python-dotenv` from `.env` files or environment variables:
+
+```dotenv
+CLOUDFLARE_DNS_TOKEN=your-token
+CLOUDFLARE_DNS_ACCOUNT=your-account-id  # optional
+GODADDY_API_KEY=your-key
+GODADDY_API_SECRET=your-secret
+IONOS_API_PUBLIC=your-public-prefix
+IONOS_API_SECRET=your-secret
+JOKER_API_KEY=your-dmapi-api-key
+```
+
+Use `--dotenv-path=path/to/.env` for explicit file location. Environment variables override `.env` values.
+
+## Target Notation
+
+Most commands use unified targets: `[provider/][domain][:record_type][:host_name][:value]`
+
+Examples:
+- `example.com` - domain on sole provider
+- `cloudflare/example.com` - specific provider
+- `cloudflare/*` - all domains on provider
+- `cloudflare/example.com:A` - filter by record type
+- `example.com.zone` - local zone file
+
+## CLI Commands
+
+### Version & Info
+```bash
+donazopy version                    # Show installed version
+donazopy providers                   # List operational providers
+```
+
+### Provider Operations
+```bash
+donazopy status [TARGET]            # Provider metadata + credential status
+donazopy domains PROVIDER            # List domains/zones managed by provider
+```
+
+### Record Operations
+```bash
+donazopy records TARGET              # List DNS records with optional filters
+donazopy export TARGET [OPTIONS]     # Export zone as BIND text
+donazopy import-zone TARGET PATH     # Import BIND zone file into provider
+donazopy create-zone TARGET          # Create hosted zone (Cloudflare only)
+```
+
+### Zone Management
+```bash
+donazopy copy SOURCE DEST [OPTIONS]                      # Copy zones between providers
+donazopy diff A B [OPTIONS]                              # Compare two zones
+```
+
+### Nameserver Operations
+```bash
+donazopy nameservers TARGET [NS1 NS2 ...]                # Read or assign nameservers
+```
+
+### Local File Operations
+```bash
+donazopy validate PATH [--origin=...]                   # Validate BIND zone file
+donazopy normalize PATH [--origin=...] [--output=PATH]  # Normalize zone file
+```
+
+## Python API
+
+### Core Classes
+
+```python
+from donazopy.cli import Donazopy
+
+cli = Donazopy()  # accepts dns_factory and registrar_factory customization
+```
+
+### Provider Management
+
+```python
+from donazopy.providers.registry import list_providers, get_provider, create_dns_provider
+
+providers = list_providers()        # List all operational ProviderSpec objects
+spec = get_provider("cloudflare")   # Get ProviderSpec by key
+provider = create_dns_provider("cloudflare", credentials)  # Create DNSHostingProvider instance
+```
+
+### Target Parsing
+
+```python
+from donazopy.target import parse_target, resolve_provider_key
+
+target = parse_target("cloudflare/example.com:A:www")
+key = resolve_provider_key(target, ["cloudflare", "godaddy"])
+```
+
+### Credential Management
+
+```python
+from donazopy.providers.base import credential_status, require_provider_credentials
+
+status = credential_status(spec, dotenv_path=None)  # CredentialStatus object
+credentials = require_provider_credentials(spec)    # Raises ProviderCredentialError if incomplete
+```
+
+### Zone File Operations
+
+```python
+from donazopy.zonefile import (
+    validate_zone_file,
+    normalize_zone_file,
+    records_from_zone_file,
+    diff_zone_records
+)
+
+from pathlib import Path
+
+# Validate and normalize
+errors = validate_zone_file(Path("example.com.zone"), origin="example.com.")
+normalized = normalize_zone_file(Path("example.com.zone"), origin="example.com.")
+
+# Parse records
+records = records_from_zone_file(Path("example.com.zone"), origin="example.com.")
+
+# Compare zones
+diff = diff_zone_records(before_records, after_records)
+summary = diff.summary()  # {"added": 2, "removed": 1, "changed": 0}
+changes = diff.to_dict()  # Detailed change listing
+```
+
+### Provider API Usage
+
+```python
+# DNS hosting operations
+zone_text = provider.export_zone("example.com")
+records = provider.list_records("example.com")
+result = provider.import_zone("example.com", zone_text, proxied=False)
+provider.create_zone("example.com")
+provider.delete_all_records("example.com")
+zones = provider.list_zones()
+
+# Registrar operations
+from donazopy.providers.registry import create_registrar_provider
+
+registrar = create_registrar_provider("godaddy", credentials)
+nameservers = registrar.read_nameservers("example.com")
+registrar.assign_nameservers("example.com", ["ns1.example.net", "ns2.example.net"])
+```
+
+### Error Handling
+
+```python
+from donazopy.providers.base import (
+    ProviderError,
+    ProviderCredentialError,
+    ProviderAPIError,
+)
+from donazopy.target import TargetError
+
+try:
+    result = cli.records("cloudflare/example.com", dotenv_path=".env")
+except ProviderCredentialError as e:
+    print(f"Credentials missing: {e}")
+except ProviderAPIError as e:
+    print(f"Provider API error: {e}")
+except TargetError as e:
+    print(f"Invalid target: {e}")
+```
+
+## Safety Model
+
+- Zone-file operations are local and deterministic
+- File writes refuse to overwrite without `--overwrite` flag
+- `copy --replace` deletes all destination records before importing
+- Credentials are redacted in status output
+- Unsupported providers not exposed by CLI
+- Clear "not supported" errors for capability mismatches
+
+## Development
+
+```bash
+uv sync
+uvx hatch test
+uvx ruff check .
+./build.sh     # Clean + hatch build
+./publish.sh   # Version bump + build + publish
+```
+
+Full documentation: http://donazopy.readthedocs.io/ (or run `./docs.sh serve` for local preview)

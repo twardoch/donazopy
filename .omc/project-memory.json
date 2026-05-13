@@ -1,17 +1,32 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1778605291616,
+  "lastScanned": 1778697905279,
   "projectRoot": "/Users/adam/Developer/vcs3/github.twardoch/pub/donazopy",
   "techStack": {
-    "languages": [],
-    "frameworks": [],
+    "languages": [
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "pyproject.toml"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "pytest",
+        "version": null,
+        "category": "testing"
+      }
+    ],
     "packageManager": null,
     "runtime": null
   },
   "build": {
     "buildCommand": null,
-    "testCommand": null,
-    "lintCommand": null,
+    "testCommand": "pytest",
+    "lintCommand": "ruff check",
     "devCommand": null,
     "scripts": {}
   },
@@ -24,7 +39,12 @@
   "structure": {
     "isMonorepo": false,
     "workspaces": [],
-    "mainDirectories": [],
+    "mainDirectories": [
+      "docs",
+      "spec",
+      "src",
+      "tests"
+    ],
     "gitBranches": {
       "defaultBranch": "main",
       "branchingStrategy": null
@@ -32,11 +52,103 @@
   },
   "customNotes": [],
   "directoryMap": {
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 2,
+      "lastAccessed": 1778697905274,
+      "keyFiles": [
+        "donazopy-1.0.10-py3-none-any.whl",
+        "donazopy-1.0.10.tar.gz"
+      ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 8,
+      "lastAccessed": 1778697905274,
+      "keyFiles": [
+        "404.html",
+        "index.html",
+        "index.md",
+        "llms-full.txt",
+        "llms.txt"
+      ]
+    },
+    "issues": {
+      "path": "issues",
+      "purpose": null,
+      "fileCount": 4,
+      "lastAccessed": 1778697905274,
+      "keyFiles": [
+        "203.md",
+        "204.md",
+        "205-doctor.md"
+      ]
+    },
+    "mkdocs": {
+      "path": "mkdocs",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1778697905274,
+      "keyFiles": [
+        "mkdocs.yml"
+      ]
+    },
     "private": {
       "path": "private",
       "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1778697905274,
+      "keyFiles": [
+        "domains.txt"
+      ]
+    },
+    "spec": {
+      "path": "spec",
+      "purpose": "Test specifications",
+      "fileCount": 13,
+      "lastAccessed": 1778697905275,
+      "keyFiles": [
+        "00-toc.md",
+        "01.md",
+        "02.md",
+        "03.md",
+        "04.md"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 1,
+      "lastAccessed": 1778697905275,
+      "keyFiles": []
+    },
+    "src_docs": {
+      "path": "src_docs",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1778697905275,
+      "keyFiles": []
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 11,
+      "lastAccessed": 1778697905275,
+      "keyFiles": [
+        "test_cli.py",
+        "test_cloudflare_provider.py",
+        "test_godaddy_provider.py",
+        "test_ionos_provider.py",
+        "test_joker_provider.py"
+      ]
+    },
+    "docs/assets": {
+      "path": "docs/assets",
+      "purpose": "Static assets",
       "fileCount": 0,
-      "lastAccessed": 1778605291603,
+      "lastAccessed": 1778697905275,
       "keyFiles": []
     }
   },

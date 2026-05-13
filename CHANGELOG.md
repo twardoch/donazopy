@@ -6,6 +6,14 @@ The format follows Keep a Changelog, and this project uses git-tag-derived seman
 
 ## [Unreleased]
 
+### Added — `donazopy doctor` diagnostic command (issue #205)
+
+- `src/donazopy/doctor.py`: new diagnostic engine with an `Issue` model, a `DoctorReport` aggregator, and a registry of static checks that operate on the existing `NormalizedRecord` model so the same engine analyses provider-hosted zones and local BIND files. Default checks: `NS_MIGRATION_ARTIFACT` (apex NS records pointing at a foreign provider — the IONOS-in-Cloudflare case), `TXT_SEMANTIC_DUPLICATE` (TXT entries that collapse to the same payload once outer quotes and `\"` escapes are normalized — the literal-quote duplicate case), `SPF_MULTIPLE`, `SPF_MISSING` (when MX present), `DMARC_MISSING`, `CAA_MISSING`, `CNAME_AT_APEX`, and `CNAME_COLLISION`.
+- Auto-fix engine (`plan_fix_records`, `fix_zone_file`, `fix_provider_zone`): removes migration-artifact NS records, keeps the canonical TXT and drops semantic duplicates, and synthesizes a monitoring-only DMARC record. Provider fixes go through export → clean → `delete_all_records` + `import_zone` with a timestamped backup written to `artifacts/doctor-<domain>-<ts>.zone`; local file fixes write `.bak` siblings before rewriting.
+- `src/donazopy/cli.py`: new `donazopy doctor TARGET [--fix] [--json] [--output=...]` subcommand that accepts either a provider target or a local zone-file path, returns a human-readable report by default, and emits a JSON dictionary with `--json`.
+- Provider-nameserver pattern map covers Cloudflare, IONOS, GoDaddy, AWS, Google, Azure, Namecheap, Joker, DNSimple, Gandi, Porkbun, Vercel, DigitalOcean, Hetzner, Linode, and Vultr — used by the migration-NS check to identify foreign authoritative servers without any live query.
+- Tests: `tests/test_doctor.py` exercises every check, the fix planner, the local-file fix path, and the CLI integration.
+
 ### Added — operational GoDaddy, IONOS, and Joker provider adapters
 
 - `donazopy providers` (and `status`, target notation, every command) now exposes four operational providers: `cloudflare`, `godaddy`, `ionos`, `joker`.

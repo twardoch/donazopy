@@ -7,6 +7,12 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 
 from donazopy import __version__
+from donazopy.doctor import (
+    analyze_provider_records,
+    analyze_zone_file,
+    fix_provider_zone,
+    fix_zone_file,
+)
 from donazopy.providers.base import (
     DNSHostingProvider,
     ProviderAPIError,
@@ -303,3 +309,39 @@ class Donazopy:
         if output is not None:
             write_text_safely(Path(output), normalized, overwrite=overwrite)
         return normalized
+
+    def doctor(
+        self,
+        target: str,
+        fix: bool = False,
+        dotenv_path: str | None = None,
+        origin: str | None = None,
+        json: bool = False,
+        output: str | None = None,
+        overwrite: bool = False,
+    ) -> str | dict[str, object]:
+        """Diagnose a zone (provider target or local zone file) for common problems.
+
+        With ``--fix``, apply safe automatic fixes: remove migration-artifact NS
+        records pointing at a foreign provider, deduplicate semantically identical
+        TXT records, and add a monitoring-only DMARC record when MX records are
+        present. Other findings (missing SPF/CAA, CNAME conflicts, multiple SPF)
+        are reported with copy-paste instructions.
+        """
+        if looks_like_path(target):
+            path = Path(target)
+            report = fix_zone_file(path, origin=origin, overwrite=overwrite) if fix else analyze_zone_file(path, origin=origin)
+        else:
+            key, parsed = self._resolve_target(target)
+            domain = self._require_domain(parsed)
+            provider = self._dns_provider(key, dotenv_path)
+            if fix:
+                report = fix_provider_zone(provider, domain=domain, provider_key=key)
+            else:
+                records = provider.list_records(domain)
+                report = analyze_provider_records(list(records), domain=domain, provider_key=key)
+        if output is not None:
+            write_text_safely(Path(output), report.format_text(), overwrite=overwrite)
+        if json:
+            return report.to_dict()
+        return report.format_text()
