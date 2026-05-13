@@ -278,6 +278,50 @@ def test_analyze_provider_records_when_migration_artifact_then_detects_ns() -> N
     assert "NS_MIGRATION_ARTIFACT" in codes
 
 
+def test_cli_doctor_when_wildcard_target_then_iterates_all_zones(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``donazopy doctor cloudflare/*`` must walk every zone on the provider."""
+    from typing import Any
+
+    from donazopy.cli import Donazopy
+
+    class FakeMultiProvider:
+        def __init__(self) -> None:
+            self.records_by_domain: dict[str, list[dict[str, Any]]] = {
+                "alpha.test": [
+                    {"type": "SOA", "name": "@", "ttl": 3600,
+                     "content": "ns.example. hostmaster.example. 1 7200 3600 1209600 3600"},
+                    {"type": "NS", "name": "@", "ttl": 3600, "content": "ns.example"},
+                ],
+                "beta.test": [
+                    {"type": "SOA", "name": "@", "ttl": 3600,
+                     "content": "ns.example. hostmaster.example. 1 7200 3600 1209600 3600"},
+                    {"type": "NS", "name": "@", "ttl": 3600, "content": "ns.example"},
+                    {"type": "MX", "name": "@", "ttl": 3600, "content": "mail.beta.test", "prio": 10},
+                ],
+            }
+
+        def list_zones(self) -> list[str]:
+            return list(self.records_by_domain.keys())
+
+        def list_records(self, domain: str) -> list[dict[str, Any]]:
+            return list(self.records_by_domain[domain.rstrip(".")])
+
+    monkeypatch.setenv("CLOUDFLARE_DNS_TOKEN", "test-token")
+    cli = Donazopy(
+        dns_factory=lambda key, credentials, **_: FakeMultiProvider(),  # type: ignore[arg-type, return-value]
+        registrar_factory=lambda key, credentials, **_: object(),  # type: ignore[arg-type, return-value]
+    )
+
+    output = cli.doctor("cloudflare/*", json=True)
+
+    assert isinstance(output, dict)
+    assert output["count"] == 2
+    domains_in_report = {report["domain"] for report in output["reports"]}  # type: ignore[index]
+    assert domains_in_report == {"alpha.test", "beta.test"}
+
+
 def test_cli_doctor_when_local_zone_file_then_returns_report(tmp_path: Path) -> None:
     from donazopy.cli import Donazopy
 

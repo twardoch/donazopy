@@ -118,6 +118,7 @@ uv run donazopy doctor example.com.zone --origin=example.com.
 uv run donazopy doctor cloudflare/example.com --fix --dotenv-path=.env
 uv run donazopy doctor cloudflare/example.com --json --dotenv-path=.env
 uv run donazopy doctor cloudflare/example.com --fix --dmarc-email=ops@dmarc-service.com --dotenv-path=.env
+uv run donazopy doctor cloudflare/* --fix --dotenv-path=.env   # diagnose & fix every Cloudflare zone
 ```
 
 ## Command reference

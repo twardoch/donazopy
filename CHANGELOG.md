@@ -11,6 +11,10 @@ The format follows Keep a Changelog, and this project uses git-tag-derived seman
 - `analyze_provider_records` / `fix_provider_zone` previously round-tripped provider records through `build_bind_zone` + `records_from_zone_text`, whose strict dnspython parser raises `dns.zonefile.CNAMEAndOtherData` when a CNAME coexists with another type at the same owner — exactly the misconfiguration the doctor needs to *report*. Both functions now use the new `records_from_provider_dicts` converter, which builds `NormalizedRecord` tuples directly from provider dicts (no parser round-trip) and surfaces the conflict as the existing `CNAME_COLLISION` finding.
 - `src/donazopy/zonefile.py`: added `records_from_provider_dicts(records, *, origin, default_ttl=3600)` that reuses the existing `_absolute_owner` / `_rdata_for_bind` / `_normalize_soa_content` helpers and never raises on coexistence misconfigurations.
 
+### Added — `donazopy doctor cloudflare/* --fix` iterates every zone on the provider
+
+- Wildcard target (`provider/*` or `provider/`) walks every zone the provider manages, running the same diagnostics (and `--fix`) on each one. The default text output is each zone's report concatenated; `--json` returns `{"reports": [...], "count": N}`.
+
 ### Added — `donazopy copy cloudflare/* ionos/` for bulk cross-provider migration
 
 - Wildcard source targets iterate every zone the source provider manages and copy each to the destination provider. The destination target must omit the domain (or use `*`) so each source zone maps to the same-named zone on the destination. The return value is `{"copied": [...per-zone result dicts], "count": N}`.

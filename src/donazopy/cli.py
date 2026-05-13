@@ -464,19 +464,54 @@ class Donazopy:
                 if fix
                 else analyze_zone_file(path, origin=origin, dmarc_email=dmarc_email)
             )
+            if output is not None:
+                write_text_safely(Path(output), report.format_text(), overwrite=overwrite)
+            if json:
+                return report.to_dict()
+            return report.format_text()
+
+        key, parsed = self._resolve_target(target)
+        provider = self._dns_provider(key, dotenv_path)
+
+        if parsed.domain in (None, "*"):
+            reports = []
+            for one_domain in provider.list_zones():
+                if fix:
+                    reports.append(
+                        fix_provider_zone(
+                            provider,
+                            domain=one_domain,
+                            provider_key=key,
+                            dmarc_email=dmarc_email,
+                        )
+                    )
+                else:
+                    records = provider.list_records(one_domain)
+                    reports.append(
+                        analyze_provider_records(
+                            list(records),
+                            domain=one_domain,
+                            provider_key=key,
+                            dmarc_email=dmarc_email,
+                        )
+                    )
+            combined_text = "\n".join(report.format_text() for report in reports)
+            if output is not None:
+                write_text_safely(Path(output), combined_text, overwrite=overwrite)
+            if json:
+                return {"reports": [report.to_dict() for report in reports], "count": len(reports)}
+            return combined_text
+
+        domain = self._require_domain(parsed)
+        if fix:
+            report = fix_provider_zone(
+                provider, domain=domain, provider_key=key, dmarc_email=dmarc_email
+            )
         else:
-            key, parsed = self._resolve_target(target)
-            domain = self._require_domain(parsed)
-            provider = self._dns_provider(key, dotenv_path)
-            if fix:
-                report = fix_provider_zone(
-                    provider, domain=domain, provider_key=key, dmarc_email=dmarc_email
-                )
-            else:
-                records = provider.list_records(domain)
-                report = analyze_provider_records(
-                    list(records), domain=domain, provider_key=key, dmarc_email=dmarc_email
-                )
+            records = provider.list_records(domain)
+            report = analyze_provider_records(
+                list(records), domain=domain, provider_key=key, dmarc_email=dmarc_email
+            )
         if output is not None:
             write_text_safely(Path(output), report.format_text(), overwrite=overwrite)
         if json:
