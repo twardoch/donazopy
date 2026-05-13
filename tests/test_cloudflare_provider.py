@@ -52,7 +52,7 @@ def test_list_records_when_zone_exists_then_reads_all_pages() -> None:
             )
         return httpx.Response(404, json={"success": False, "errors": [{"message": "not found"}]})
 
-    provider = CloudflareProvider({"CLOUDFLARE_API_TOKEN": "token"}, client=make_cloudflare_client(handler))
+    provider = CloudflareProvider({"CLOUDFLARE_DNS_TOKEN": "token"}, client=make_cloudflare_client(handler))
 
     records = provider.list_records("example.com")
 
@@ -67,7 +67,7 @@ def test_export_zone_when_cloudflare_returns_bind_text_then_returns_text() -> No
             return httpx.Response(200, text="$ORIGIN example.com.\nwww 3600 IN A 192.0.2.1\n")
         return httpx.Response(404)
 
-    provider = CloudflareProvider({"CLOUDFLARE_API_TOKEN": "token"}, client=make_cloudflare_client(handler))
+    provider = CloudflareProvider({"CLOUDFLARE_DNS_TOKEN": "token"}, client=make_cloudflare_client(handler))
 
     assert "www 3600 IN A 192.0.2.1" in provider.export_zone("example.com.")
 
@@ -81,7 +81,7 @@ def test_import_zone_when_cloudflare_accepts_file_then_returns_result() -> None:
             return httpx.Response(200, json={"success": True, "result": {"recs_added": 2, "total_records_parsed": 2}})
         return httpx.Response(404)
 
-    provider = CloudflareProvider({"CLOUDFLARE_API_TOKEN": "token"}, client=make_cloudflare_client(handler))
+    provider = CloudflareProvider({"CLOUDFLARE_DNS_TOKEN": "token"}, client=make_cloudflare_client(handler))
 
     result = provider.import_zone("example.com", "$ORIGIN example.com.\n", proxied=False)
 
@@ -90,7 +90,7 @@ def test_import_zone_when_cloudflare_accepts_file_then_returns_result() -> None:
 
 def test_read_nameservers_when_zone_exists_then_returns_assigned_nameservers() -> None:
     provider = CloudflareProvider(
-        {"CLOUDFLARE_API_TOKEN": "token"},
+        {"CLOUDFLARE_DNS_TOKEN": "token"},
         client=make_cloudflare_client(lambda request: httpx.Response(200, json=zone_payload())),
     )
 
@@ -101,7 +101,7 @@ def test_cloudflare_error_when_api_returns_error_then_raises_message() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(403, json={"success": False, "errors": [{"message": "permission denied"}]})
 
-    provider = CloudflareProvider({"CLOUDFLARE_API_TOKEN": "token"}, client=make_cloudflare_client(handler))
+    provider = CloudflareProvider({"CLOUDFLARE_DNS_TOKEN": "token"}, client=make_cloudflare_client(handler))
 
     with pytest.raises(ProviderAPIError, match="permission denied"):
         provider.export_zone("example.com")
@@ -134,7 +134,7 @@ def test_delete_all_records_when_records_exist_then_deletes_each_and_counts() ->
             return httpx.Response(200, json={"success": True, "result": {"id": record_id}})
         return httpx.Response(404, json={"success": False, "errors": [{"message": "not found"}]})
 
-    provider = CloudflareProvider({"CLOUDFLARE_API_TOKEN": "token"}, client=make_cloudflare_client(handler))
+    provider = CloudflareProvider({"CLOUDFLARE_DNS_TOKEN": "token"}, client=make_cloudflare_client(handler))
 
     result = provider.delete_all_records("example.com")
 
@@ -144,7 +144,7 @@ def test_delete_all_records_when_records_exist_then_deletes_each_and_counts() ->
 
 def test_assign_nameservers_when_called_then_raises_unsupported() -> None:
     provider = CloudflareProvider(
-        {"CLOUDFLARE_API_TOKEN": "token"},
+        {"CLOUDFLARE_DNS_TOKEN": "token"},
         client=make_cloudflare_client(lambda request: httpx.Response(404)),
     )
 
@@ -175,13 +175,13 @@ def test_list_zones_when_multiple_pages_then_returns_all_names() -> None:
             )
         return httpx.Response(404)
 
-    provider = CloudflareProvider({"CLOUDFLARE_API_TOKEN": "token"}, client=make_cloudflare_client(handler))
+    provider = CloudflareProvider({"CLOUDFLARE_DNS_TOKEN": "token"}, client=make_cloudflare_client(handler))
 
     assert provider.list_zones() == ["alpha.example", "beta.example"]
 
 
 def test_create_zone_when_account_id_env_set_then_posts_zone(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "acct-123")
+    monkeypatch.setenv("CLOUDFLARE_DNS_ACCOUNT", "acct-123")
     captured: dict[str, object] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -192,7 +192,7 @@ def test_create_zone_when_account_id_env_set_then_posts_zone(monkeypatch: pytest
             return httpx.Response(200, json={"success": True, "result": {"id": "new-zone", "name": "new.example"}})
         return httpx.Response(404, json={"success": False, "errors": [{"message": "not found"}]})
 
-    provider = CloudflareProvider({"CLOUDFLARE_API_TOKEN": "token"}, client=make_cloudflare_client(handler))
+    provider = CloudflareProvider({"CLOUDFLARE_DNS_TOKEN": "token"}, client=make_cloudflare_client(handler))
 
     result = provider.create_zone("new.example.")
 
@@ -201,7 +201,7 @@ def test_create_zone_when_account_id_env_set_then_posts_zone(monkeypatch: pytest
 
 
 def test_create_zone_when_no_account_id_then_auto_detects_single_account(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("CLOUDFLARE_ACCOUNT_ID", raising=False)
+    monkeypatch.delenv("CLOUDFLARE_DNS_ACCOUNT", raising=False)
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/client/v4/accounts" and request.method == "GET":
@@ -210,13 +210,13 @@ def test_create_zone_when_no_account_id_then_auto_detects_single_account(monkeyp
             return httpx.Response(200, json={"success": True, "result": {"id": "z", "name": "new.example"}})
         return httpx.Response(404, json={"success": False, "errors": [{"message": "not found"}]})
 
-    provider = CloudflareProvider({"CLOUDFLARE_API_TOKEN": "token"}, client=make_cloudflare_client(handler))
+    provider = CloudflareProvider({"CLOUDFLARE_DNS_TOKEN": "token"}, client=make_cloudflare_client(handler))
 
     assert provider.create_zone("new.example") == {"id": "z", "name": "new.example"}
 
 
 def test_create_zone_when_zone_exists_then_returns_existing_zone(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "acct-123")
+    monkeypatch.setenv("CLOUDFLARE_DNS_ACCOUNT", "acct-123")
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/client/v4/zones" and request.method == "POST":
@@ -227,7 +227,7 @@ def test_create_zone_when_zone_exists_then_returns_existing_zone(monkeypatch: py
             return httpx.Response(200, json=zone_payload())
         return httpx.Response(404, json={"success": False, "errors": [{"message": "not found"}]})
 
-    provider = CloudflareProvider({"CLOUDFLARE_API_TOKEN": "token"}, client=make_cloudflare_client(handler))
+    provider = CloudflareProvider({"CLOUDFLARE_DNS_TOKEN": "token"}, client=make_cloudflare_client(handler))
 
     result = provider.create_zone("example.com")
 

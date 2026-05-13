@@ -108,12 +108,12 @@ the environment and reports:
 $ donazopy status cloudflare --dotenv-path=.env
 {
   "provider_key": "cloudflare",
-  "required": ["CLOUDFLARE_API_TOKEN"],
-  "present": ["CLOUDFLARE_API_TOKEN"],
+  "required": ["CLOUDFLARE_DNS_TOKEN"],
+  "present": ["CLOUDFLARE_DNS_TOKEN"],
   "missing": [],
   "complete": true,
-  "sources": {"CLOUDFLARE_API_TOKEN": ".env"},
-  "redacted": {"CLOUDFLARE_API_TOKEN": "***"}
+  "sources": {"CLOUDFLARE_DNS_TOKEN": ".env"},
+  "redacted": {"CLOUDFLARE_DNS_TOKEN": "***"}
 }
 ```
 
@@ -204,7 +204,7 @@ donazopy create-zone TARGET [--dotenv-path=PATH]
 
 Creates a hosted zone for the domain in `TARGET` on its provider. On Cloudflare
 this is `POST /zones` and is idempotent (returns the existing zone if it is
-already there); the account comes from `CLOUDFLARE_ACCOUNT_ID` if set, otherwise
+already there); the account comes from `CLOUDFLARE_DNS_ACCOUNT` if set, otherwise
 it is auto-detected when the API token spans exactly one account. On providers
 where a DNS zone exists implicitly with the domain registration (IONOS, GoDaddy,
 Joker) this raises a clear "not supported" error.

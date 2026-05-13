@@ -16,7 +16,7 @@ For Cloudflare, create an ignored `.env` file:
 .env
 
 ```text
-CLOUDFLARE_API_TOKEN=your-cloudflare-api-token
+CLOUDFLARE_DNS_TOKEN=your-cloudflare-api-token
 ```
 
 Never commit secrets

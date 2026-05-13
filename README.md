@@ -31,8 +31,8 @@ Credentials are loaded with [`python-dotenv`](https://pypi.org/project/python-do
 Create an ignored `.env` with the credentials for the provider(s) you use:
 
 ```dotenv
-CLOUDFLARE_API_TOKEN=your-token          # Cloudflare (DNS Read for list/export, DNS Edit for import/copy, Zone Edit for create-zone)
-CLOUDFLARE_ACCOUNT_ID=your-account-id    # Cloudflare, optional — only needed for create-zone when the token spans multiple accounts
+CLOUDFLARE_DNS_TOKEN=your-token          # Cloudflare (DNS Read for list/export, DNS Edit for import/copy, Zone Edit for create-zone)
+CLOUDFLARE_DNS_ACCOUNT=your-account-id    # Cloudflare, optional — only needed for create-zone when the token spans multiple accounts
 GODADDY_API_KEY=your-key                 # GoDaddy
 GODADDY_API_SECRET=your-secret
 IONOS_API_PUBLIC=your-public-prefix      # IONOS (combined as "{public}.{secret}" in the X-API-Key header)

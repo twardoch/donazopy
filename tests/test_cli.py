@@ -86,7 +86,7 @@ def cli(
     dns_provider: FakeDNSProvider, registrar_provider: FakeRegistrarProvider, monkeypatch: pytest.MonkeyPatch
 ) -> Donazopy:
     # Make credential loading offline-friendly.
-    monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "test-token")
+    monkeypatch.setenv("CLOUDFLARE_DNS_TOKEN", "test-token")
     return Donazopy(
         dns_factory=lambda key, credentials, **_: dns_provider,
         registrar_factory=lambda key, credentials, **_: registrar_provider,
@@ -102,7 +102,7 @@ def test_providers_when_called_then_lists_operational_keys() -> None:
 
 
 def test_status_when_no_target_then_returns_entry_per_provider(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("CLOUDFLARE_API_TOKEN", raising=False)
+    monkeypatch.delenv("CLOUDFLARE_DNS_TOKEN", raising=False)
     result = Donazopy().status()
 
     assert set(result) == {"cloudflare", "godaddy", "ionos", "joker"}
@@ -112,7 +112,7 @@ def test_status_when_no_target_then_returns_entry_per_provider(monkeypatch: pyte
 
 def test_status_when_provider_key_then_returns_single_entry(tmp_path: Path) -> None:
     dotenv_path = tmp_path / ".env"
-    dotenv_path.write_text("CLOUDFLARE_API_TOKEN=token\n", encoding="utf-8")
+    dotenv_path.write_text("CLOUDFLARE_DNS_TOKEN=token\n", encoding="utf-8")
 
     result = Donazopy().status("cloudflare", dotenv_path=str(dotenv_path))
 
@@ -122,7 +122,7 @@ def test_status_when_provider_key_then_returns_single_entry(tmp_path: Path) -> N
 
 def test_status_when_full_target_then_resolves_provider(tmp_path: Path) -> None:
     dotenv_path = tmp_path / ".env"
-    dotenv_path.write_text("CLOUDFLARE_API_TOKEN=token\n", encoding="utf-8")
+    dotenv_path.write_text("CLOUDFLARE_DNS_TOKEN=token\n", encoding="utf-8")
 
     result = Donazopy().status("cloudflare/example.com:A", dotenv_path=str(dotenv_path))
 
@@ -191,7 +191,7 @@ def test_copy_when_create_false_then_skips_zone_creation(cli: Donazopy, dns_prov
 def test_copy_when_dest_provider_cannot_create_zone_then_tolerated(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "test-token")
+    monkeypatch.setenv("CLOUDFLARE_DNS_TOKEN", "test-token")
     dns_provider = FakeDNSProvider(create_supported=False)
     cli = Donazopy(
         dns_factory=lambda key, credentials, **_: dns_provider,
@@ -206,7 +206,7 @@ def test_copy_when_dest_provider_cannot_create_zone_then_tolerated(
 
 
 def test_create_zone_command_when_provider_cannot_create_then_raises(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "test-token")
+    monkeypatch.setenv("CLOUDFLARE_DNS_TOKEN", "test-token")
     cli = Donazopy(
         dns_factory=lambda key, credentials, **_: FakeDNSProvider(create_supported=False),
         registrar_factory=lambda key, credentials, **_: FakeRegistrarProvider(),
@@ -312,7 +312,7 @@ def test_export_when_assign_unsupported_via_cloudflare_then_documented() -> None
     from donazopy.providers.cloudflare import CloudflareProvider
 
     provider = CloudflareProvider(
-        {"CLOUDFLARE_API_TOKEN": "token"},
+        {"CLOUDFLARE_DNS_TOKEN": "token"},
         client=httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(404))),
     )
     with pytest.raises(ProviderAPIError, match="not supported"):

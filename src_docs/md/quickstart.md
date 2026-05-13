@@ -22,7 +22,7 @@ Provider credentials are loaded with [`python-dotenv`](https://pypi.org/project/
 For Cloudflare, create an ignored `.env` file:
 
 ```dotenv title=".env"
-CLOUDFLARE_API_TOKEN=your-cloudflare-api-token
+CLOUDFLARE_DNS_TOKEN=your-cloudflare-api-token
 ```
 
 !!! warning "Never commit secrets"

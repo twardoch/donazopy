@@ -80,7 +80,7 @@ Credentials are loaded with `python-dotenv` plus the environment, in this order 
 | Category     | `dns_and_registrar`                                                                       |
 | API base     | `https://api.cloudflare.com/client/v4`                                                    |
 | Docs         | <https://developers.cloudflare.com/api/>                                                  |
-| Credentials  | `CLOUDFLARE_API_TOKEN`                                                                    |
+| Credentials  | `CLOUDFLARE_DNS_TOKEN`                                                                    |
 | Capabilities | `zone_read`, `zone_write`, `zone_export`, `zone_import`, `domain_read`, `delegation_read` |
 
 ### What it does
@@ -89,7 +89,7 @@ Credentials are loaded with `python-dotenv` plus the environment, in this order 
 - `export` → `GET /zones/{id}/dns_records/export` (Cloudflare's native BIND export); the result is returned (and optionally written / filtered).
 - `import-zone` → `POST /zones/{id}/dns_records/import` with the zone file as a multipart upload; `--proxied` sets the `proxied` form field.
 - `nameservers` (read) → the `name_servers` field on the zone object from `GET /zones?name=...`.
-- `create-zone` / `copy --create` → `POST /zones` (idempotent — returns the existing zone on the "already exists" error). The account comes from `CLOUDFLARE_ACCOUNT_ID` if set, otherwise it is auto-detected when the token has access to exactly one account.
+- `create-zone` / `copy --create` → `POST /zones` (idempotent — returns the existing zone on the "already exists" error). The account comes from `CLOUDFLARE_DNS_ACCOUNT` if set, otherwise it is auto-detected when the token has access to exactly one account.
 
 Zone lookup is by name: `GET /zones?name=example.com&per_page=1`. A missing zone, a malformed response, or any `4xx`/`5xx` raises `ProviderAPIError` with the Cloudflare error message(s) extracted from the response.
 
@@ -99,14 +99,14 @@ Zone lookup is by name: `GET /zones?name=example.com&per_page=1`. A missing zone
 | ---------------------------------- | -------------------------------------------------------------------------------------- |
 | `records`, `export`, `nameservers` | Zone → DNS → **Read**                                                                  |
 | `import-zone`, `copy`              | Zone → DNS → **Edit**                                                                  |
-| `create-zone`, `copy --create`     | Zone → **Edit** (and account access for `POST /zones`; or set `CLOUDFLARE_ACCOUNT_ID`) |
+| `create-zone`, `copy --create`     | Zone → **Edit** (and account access for `POST /zones`; or set `CLOUDFLARE_DNS_ACCOUNT`) |
 
 Create a scoped API token in the Cloudflare dashboard (My Profile → API Tokens), restricted to the specific zone(s) you operate on, and put it in `.env`:
 
 .env
 
 ```text
-CLOUDFLARE_API_TOKEN=your-scoped-token
+CLOUDFLARE_DNS_TOKEN=your-scoped-token
 ```
 
 ### Nameservers and delegation

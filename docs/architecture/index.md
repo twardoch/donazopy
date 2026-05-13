@@ -43,7 +43,7 @@ CLI (Donazopy.export)
   └─ resolve_provider_key(target, operational_keys)  → "cloudflare"
   └─ get_provider("cloudflare")                      → ProviderSpec
   └─ require_provider_credentials(spec, dotenv_path=.env)
-        └─ dotenv_environment(...)                   → merged {.env, environ}, raises if CLOUDFLARE_API_TOKEN missing
+        └─ dotenv_environment(...)                   → merged {.env, environ}, raises if CLOUDFLARE_DNS_TOKEN missing
   └─ create_dns_provider("cloudflare", creds)        → CloudflareProvider
   └─ CloudflareProvider.export_zone("example.com")
         └─ GET /zones?name=example.com               → zone id

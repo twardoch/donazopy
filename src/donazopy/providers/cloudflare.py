@@ -14,7 +14,7 @@ PROVIDER = ProviderSpec(
     display_name="Cloudflare",
     category="dns_and_registrar",
     docs_url="https://developers.cloudflare.com/api/",
-    credentials=("CLOUDFLARE_API_TOKEN",),
+    credentials=("CLOUDFLARE_DNS_TOKEN",),
     capabilities=DNS_AND_REGISTRAR_READ,
     notes="Operational DNS adapter for Cloudflare zones: list records, export/import BIND zones, and read assigned nameservers.",
 )
@@ -25,9 +25,9 @@ class CloudflareProvider:
     spec = PROVIDER
 
     def __init__(self, credentials: Mapping[str, str], *, client: httpx.Client | None = None) -> None:
-        token = credentials.get("CLOUDFLARE_API_TOKEN")
+        token = credentials.get("CLOUDFLARE_DNS_TOKEN")
         if not token:
-            msg = "missing required credentials for cloudflare: CLOUDFLARE_API_TOKEN"
+            msg = "missing required credentials for cloudflare: CLOUDFLARE_DNS_TOKEN"
             raise ProviderAPIError(msg)
         self._client = client or httpx.Client(timeout=30.0)
         self._headers = {"Authorization": f"Bearer {token}"}
@@ -106,7 +106,7 @@ class CloudflareProvider:
     def create_zone(self, domain: str) -> Mapping[str, object]:
         """Create a Cloudflare zone for ``domain`` (idempotent: returns the existing zone if present).
 
-        The Cloudflare account is taken from ``CLOUDFLARE_ACCOUNT_ID`` if set, otherwise it is
+        The Cloudflare account is taken from ``CLOUDFLARE_DNS_ACCOUNT`` if set, otherwise it is
         auto-detected when the API token has access to exactly one account.
         """
         name = domain.rstrip(".")
@@ -125,7 +125,7 @@ class CloudflareProvider:
         return result if isinstance(result, dict) else {"result": result}
 
     def _account_id(self) -> str:
-        configured = os.environ.get("CLOUDFLARE_ACCOUNT_ID")
+        configured = os.environ.get("CLOUDFLARE_DNS_ACCOUNT")
         if configured:
             return configured
         payload = self._request("GET", "/accounts", params={"per_page": 50})
@@ -140,10 +140,10 @@ class CloudflareProvider:
         if not accounts:
             raise ProviderAPIError(
                 "could not determine a Cloudflare account for zone creation: the API token cannot "
-                "list accounts. Set CLOUDFLARE_ACCOUNT_ID."
+                "list accounts. Set CLOUDFLARE_DNS_ACCOUNT."
             )
         raise ProviderAPIError(
-            "the Cloudflare API token has access to multiple accounts; set CLOUDFLARE_ACCOUNT_ID "
+            "the Cloudflare API token has access to multiple accounts; set CLOUDFLARE_DNS_ACCOUNT "
             "to choose one for zone creation."
         )
 
