@@ -26,6 +26,12 @@ The format follows Keep a Changelog, and this project uses git-tag-derived seman
 - Wildcard export targets iterate every zone the provider manages. The CLI now requires `--output=DIR` for wildcards and writes each zone to `DIR/<domain>.zone` (creating the directory if needed). The return value is a `{domain: path}` map so callers can see exactly what was written.
 - For single-domain targets, `--output` may now be a directory: when the path exists as a directory (or is a non-existent path without a suffix), the CLI autogenerates `<output>/<domain>.zone`. Plain file paths still work as before.
 
+### Fixed — `records_from_zone_text` falls back to a lenient parser
+
+- The strict dnspython parser raises `ValueError: add() has non-origin SOA` (and similar) on real-world Cloudflare exports whose BIND text includes records dnspython considers out-of-zone. Every code path that round-tripped through `records_from_zone_text` — notably `ionos.import_zone` during `donazopy copy cloudflare/* ionos/` — crashed.
+- Added `records_from_zone_text_lenient(text, origin)` that parses line-by-line, honors `$ORIGIN` / `$TTL` directives, handles the common four single-line BIND forms (`name ttl IN type rdata`, `name IN type rdata`, `name ttl type rdata`, `name type rdata`), and skips records whose type is unknown or whose line is a multi-line continuation.
+- `records_from_zone_text` now wraps the strict parse in `try` / `except (ZoneFileError, dns.exception.DNSException, ValueError)` and falls back to the lenient parser on failure — so every consumer (including provider `import_zone` implementations and the `donazopy copy` / `donazopy doctor` pipelines) survives quirky exports.
+
 ### Fixed — `donazopy export --skip-ns` survives unparseable Cloudflare zones
 
 - `filter_zone_text` previously crashed with `ValueError: add() has non-origin SOA` (and a handful of similar dnspython errors) whenever a provider's BIND export included an out-of-zone or otherwise borderline record. Real-world Cloudflare exports for migrated zones triggered this regularly, making `donazopy export --skip-ns cloudflare/<domain>` unusable in bulk loops.

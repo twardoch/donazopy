@@ -110,6 +110,26 @@ def test_records_from_zone_text_when_valid_then_returns_records() -> None:
     assert any(record.owner == "www.example.com." and record.record_type == "A" for record in records)
 
 
+def test_records_from_zone_text_when_strict_parse_fails_then_lenient_fallback() -> None:
+    """Regression: ionos.import_zone (and any caller) round-tripping
+    Cloudflare exports through ``records_from_zone_text`` must not crash
+    on out-of-origin SOA entries. The lenient fallback parses the rest."""
+    text = """$ORIGIN example.com.
+$TTL 3600
+example.com. 3600 IN SOA ns1.example.com. hostmaster.example.com. 1 7200 3600 1209600 3600
+example.com. 3600 IN NS ns1.example.com.
+www.example.com. 3600 IN A 192.0.2.20
+unexpected.other-zone.tld. 3600 IN SOA something. else. 1 2 3 4 5
+"""
+
+    records = records_from_zone_text(text, "example.com.")
+
+    record_types = {r.record_type for r in records}
+    assert "A" in record_types
+    assert "NS" in record_types
+    assert any(r.owner == "www.example.com." and r.value == "192.0.2.20" for r in records)
+
+
 def test_filter_zone_text_when_strict_parse_fails_then_lenient_fallback() -> None:
     """Real-world: Cloudflare exports occasionally trip dnspython with a
     ``non-origin SOA`` ValueError. The filter must still drop NS records via

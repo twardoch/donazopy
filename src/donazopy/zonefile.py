@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -324,8 +325,98 @@ def records_from_zone_file(path: Path, origin: str | None = None) -> tuple[Norma
 
 
 def records_from_zone_text(text: str, origin: str) -> tuple[NormalizedRecord, ...]:
-    """Parse zone text and return normalized records."""
-    return records_from_zone(parse_zone_text(text, origin))
+    """Parse zone text and return normalized records.
+
+    Falls back to a line-based lenient parser when strict dnspython parsing
+    rejects the input — e.g. provider exports whose SOA owner does not match
+    the zone origin.
+    """
+    try:
+        return records_from_zone(parse_zone_text(text, origin))
+    except (ZoneFileError, dns.exception.DNSException, ValueError):
+        return records_from_zone_text_lenient(text, origin)
+
+
+def records_from_zone_text_lenient(text: str, origin: str) -> tuple[NormalizedRecord, ...]:
+    """Parse zone text line-by-line into :class:`NormalizedRecord` tuples.
+
+    Used when strict dnspython parsing rejects the input (e.g. provider
+    exports that contain a SOA whose owner is not the zone origin). The
+    parser handles the common single-line forms ``name ttl IN type rdata``,
+    ``name IN type rdata``, ``name ttl type rdata``, and ``name type rdata``,
+    with ``$ORIGIN`` / ``$TTL`` directives respected. Multi-line
+    parenthesized records and rare BIND constructs are skipped.
+    """
+    origin_abs = origin if origin.endswith(".") else f"{origin}."
+    current_origin = origin_abs
+    current_ttl = 3600
+    records: list[NormalizedRecord] = []
+    for index, raw in enumerate(text.splitlines()):
+        line = raw.split(";", 1)[0].rstrip()
+        if not line.strip():
+            continue
+        upper = line.lstrip().upper()
+        if upper.startswith("$ORIGIN"):
+            parts = line.split()
+            if len(parts) >= 2:
+                current_origin = parts[1] if parts[1].endswith(".") else parts[1] + "."
+            continue
+        if upper.startswith("$TTL"):
+            parts = line.split()
+            if len(parts) >= 2:
+                with contextlib.suppress(ValueError):
+                    current_ttl = int(parts[1])
+            continue
+        if line.startswith((" ", "\t")):
+            # Continuation lines (unsupported); skip.
+            continue
+        tokens = line.split(None, 4)
+        if len(tokens) < 3:
+            continue
+        owner_raw = tokens[0]
+        rest = tokens[1:]
+        ttl = current_ttl
+        klass = "IN"
+        rtype: str | None = None
+        rdata = ""
+        # Try ``name ttl IN type rdata``.
+        if len(rest) >= 4 and rest[0].isdigit() and rest[1].upper() == "IN":
+            ttl = int(rest[0])
+            rtype = rest[2].upper()
+            rdata = rest[3] if len(rest) == 4 else rest[3] + " " + " ".join(tokens[4:5])
+            rdata = line.split(None, 4)[4] if len(line.split(None, 4)) == 5 else rest[3]
+        # ``name IN ttl type rdata`` (rare).
+        elif len(rest) >= 4 and rest[0].upper() == "IN" and rest[1].isdigit():
+            ttl = int(rest[1])
+            rtype = rest[2].upper()
+            rdata = line.split(None, 4)[4] if len(line.split(None, 4)) == 5 else rest[3]
+        # ``name IN type rdata``.
+        elif len(rest) >= 3 and rest[0].upper() == "IN":
+            rtype = rest[1].upper()
+            rdata = " ".join(tokens[3:])
+        # ``name ttl type rdata`` (no class).
+        elif rest[0].isdigit():
+            ttl = int(rest[0])
+            rtype = rest[1].upper() if len(rest) >= 2 else None
+            rdata = " ".join(tokens[3:])
+        # ``name type rdata`` (no ttl, no class).
+        else:
+            rtype = rest[0].upper()
+            rdata = " ".join(tokens[2:])
+        if rtype is None or rtype not in _DNS_TYPES_FOR_FILTER:
+            continue
+        owner = _absolute_owner(owner_raw, current_origin)
+        records.append(
+            NormalizedRecord(
+                owner=owner,
+                ttl=ttl,
+                record_class=klass,
+                record_type=rtype,
+                value=rdata.strip(),
+                source_order=index,
+            )
+        )
+    return tuple(sorted(records, key=lambda record: (record.owner, record.record_type, record.value, record.ttl)))
 
 
 def normalize_zone_text(text: str, origin: str) -> str:

@@ -91,6 +91,8 @@ mail IN A 192.0.2.2
 
 
 def test_check_cname_at_apex_then_error() -> None:
+    """The lenient parser accepts CNAME-at-apex (strict dnspython rejects it),
+    and the doctor must report it as CNAME_AT_APEX + CNAME_COLLISION."""
     text = """$ORIGIN example.com.
 $TTL 3600
 @ IN SOA ns.example.com. hostmaster.example.com. 1 7200 3600 1209600 3600
@@ -98,10 +100,12 @@ $TTL 3600
 ns IN A 192.0.2.1
 @ IN CNAME other.example.net.
 """
-    # dnspython rejects CNAME alongside SOA at apex when parsing strictly.
-    # Build records directly from a node-by-node text instead.
-    with pytest.raises(Exception):  # noqa: B017 — dnspython raises a broad DNSException
-        _records(text)
+    records = _records(text)
+    issues = analyze_records(records, domain="example.com", provider_key="cloudflare")
+
+    codes = {issue.code for issue in issues}
+    assert "CNAME_AT_APEX" in codes
+    assert "CNAME_COLLISION" in codes
 
 
 def test_check_cname_collision_when_cname_with_a_then_error() -> None:
