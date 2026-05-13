@@ -11,6 +11,47 @@ The format follows Keep a Changelog, and this project uses git-tag-derived seman
 - `analyze_provider_records` / `fix_provider_zone` previously round-tripped provider records through `build_bind_zone` + `records_from_zone_text`, whose strict dnspython parser raises `dns.zonefile.CNAMEAndOtherData` when a CNAME coexists with another type at the same owner — exactly the misconfiguration the doctor needs to *report*. Both functions now use the new `records_from_provider_dicts` converter, which builds `NormalizedRecord` tuples directly from provider dicts (no parser round-trip) and surfaces the conflict as the existing `CNAME_COLLISION` finding.
 - `src/donazopy/zonefile.py`: added `records_from_provider_dicts(records, *, origin, default_ttl=3600)` that reuses the existing `_absolute_owner` / `_rdata_for_bind` / `_normalize_soa_content` helpers and never raises on coexistence misconfigurations.
 
+### Added — `donazopy copy cloudflare/* ionos/` for bulk cross-provider migration
+
+- Wildcard source targets iterate every zone the source provider manages and copy each to the destination provider. The destination target must omit the domain (or use `*`) so each source zone maps to the same-named zone on the destination. The return value is `{"copied": [...per-zone result dicts], "count": N}`.
+- Combines with the existing `--clean` / `--replace`, `--skip-ns`, `--skip-types`, and `--create=BOOL` flags: e.g. `donazopy copy cloudflare/* ionos/ --clean --skip-ns` migrates every Cloudflare zone to IONOS, wiping any existing IONOS records first and dropping Cloudflare-managed apex NS from the export.
+- Mixing wildcard source with a concrete destination domain raises a clear `TargetError` so the per-zone-name semantics stay explicit.
+
+### Added — `donazopy export cloudflare/*` writes one zone file per domain
+
+- Wildcard export targets iterate every zone the provider manages. The CLI now requires `--output=DIR` for wildcards and writes each zone to `DIR/<domain>.zone` (creating the directory if needed). The return value is a `{domain: path}` map so callers can see exactly what was written.
+- For single-domain targets, `--output` may now be a directory: when the path exists as a directory (or is a non-existent path without a suffix), the CLI autogenerates `<output>/<domain>.zone`. Plain file paths still work as before.
+
+### Fixed — `donazopy export --skip-ns` survives unparseable Cloudflare zones
+
+- `filter_zone_text` previously crashed with `ValueError: add() has non-origin SOA` (and a handful of similar dnspython errors) whenever a provider's BIND export included an out-of-zone or otherwise borderline record. Real-world Cloudflare exports for migrated zones triggered this regularly, making `donazopy export --skip-ns cloudflare/<domain>` unusable in bulk loops.
+- Added `filter_zone_text_lenient` — a line-based filter that respects `$ORIGIN` / `$TTL` directives and comments, identifies the type column heuristically (looking for `IN` then a known DNS type, with a fallback to any known type token), and drops records whose type matches the skip set. `SOA` is never dropped.
+- `filter_zone_text` now wraps its strict parse in `try`/`except` and falls back to the lenient filter on any `ZoneFileError` / `dns.exception.DNSException` / `ValueError`, so `donazopy export ... --skip-ns` and `donazopy copy ... --skip-ns` keep working even on quirky zones.
+
+### Added — `--clean` on `import-zone` and `copy`
+
+- `donazopy import-zone TARGET PATH --clean` calls `delete_all_records` on the target before importing. Use when the imported BIND file is meant to be the complete state of the zone (Cloudflare's BIND import is otherwise additive).
+- `donazopy copy SOURCE DEST --clean` is a synonym for `--replace`: wipes the destination zone before importing the copied records.
+
+### Fixed — `doctor --fix` uses granular create/delete on the primary zone too (issue #205)
+
+- `fix_provider_zone` previously did `delete_all_records` + `import_zone` on the zone being fixed. Cloudflare's BIND import strips proxied state and rejects records it cannot parse, so a long zone could be silently slimmed down even when only a couple of records actually needed changing.
+- The doctor now detects when the provider exposes both `create_record` and `delete_record` (Cloudflare does) and applies a targeted diff: only the records that need to change are POSTed or DELETEd individually. Proxied state, comments, tags, and any record the BIND parser would have rejected all stay untouched.
+- `src/donazopy/providers/cloudflare.py`: added `delete_record(domain, record_id)`.
+- For providers without per-record APIs (Joker etc.), the destructive replace remains as a fallback with a clear `delete_all_records` + `import_zone` path.
+
+### Fixed — `doctor --fix` no longer wipes the receiver zone (issue #205 critical regression)
+
+- The previous external-DMARC fix path used `delete_all_records` + `import_zone` on the *receiver* zone. Cloudflare's BIND import endpoint silently drops every proxied state and any record its parser rejects, so receivers like `fontlab.com` were left with only the records that round-tripped cleanly through BIND. The user did not opt into mutating those zones, so the destruction was a critical regression.
+- `_ensure_external_dmarc_auth` now uses a single-record-add API: the doctor calls `provider.create_record(receiver, {...})` when present and skips otherwise. The receiver zone is never re-imported in bulk. Backups for receiver zones are no longer needed (and no longer taken).
+- `src/donazopy/providers/cloudflare.py`: added `create_record(domain, record)` that POSTs the single record to `/zones/{id}/dns_records`.
+- For providers that lack `create_record` (Joker, etc.), the doctor leaves the issue unresolved and prints the suggested record so the user adds it manually.
+- Tests: `test_fix_provider_zone_when_external_receiver_on_same_provider_then_authorizes` now asserts the auth record is added via `create_record` and that the receiver is *not* deleted/re-imported; new `test_fix_provider_zone_when_provider_lacks_create_record_then_unfixed` covers the safe fallback; new `test_create_record_when_called_then_posts_single_record` covers the Cloudflare adapter.
+
+### Fixed — `CNAME_COLLISION` / `CNAME_AT_APEX` now auto-fixable (issue #205 follow-up)
+
+- Both checks now set `fixable=True`; `plan_fix_records` resolves them by dropping the CNAME record(s) and keeping every coexisting record. This matches the RFC 1912 §2.4 rule that the CNAME is the violator when other types share the same owner (e.g. an `_dmarc.*` zone with both a CNAME pointing to `dmarc.ionos.com.` and a proper DMARC TXT — the TXT is preserved). Apex CNAMEs are dropped in favor of the mandatory SOA/NS records.
+
 ### Added — `doctor --dmarc-email=ADDR` and automatic external-destination authorization (issue #205 follow-up)
 
 - The `doctor` CLI and `analyze_records` / `plan_fix_records` / `analyze_zone_file` / `fix_zone_file` / `analyze_provider_records` / `fix_provider_zone` Python APIs accept a `dmarc_email` parameter; the synthesized DMARC record uses `rua=mailto:<dmarc_email>` instead of the default `dmarc@<zone>`.

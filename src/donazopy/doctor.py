@@ -459,7 +459,14 @@ def check_cname_conflicts(ctx: CheckContext) -> list[Issue]:
     for owner, recs in by_owner.items():
         types = {r.record_type for r in recs}
         if "CNAME" in types and types - {"CNAME", "RRSIG", "NSEC"}:
-            affected = tuple(f"{r.owner} {r.ttl} IN {r.record_type} {r.value}" for r in recs)
+            cname_lines = tuple(
+                f"{r.owner} {r.ttl} IN CNAME {r.value}" for r in recs if r.record_type == "CNAME"
+            )
+            other_lines = tuple(
+                f"{r.owner} {r.ttl} IN {r.record_type} {r.value}"
+                for r in recs
+                if r.record_type != "CNAME"
+            )
             issues.append(
                 Issue(
                     code="CNAME_COLLISION",
@@ -468,11 +475,16 @@ def check_cname_conflicts(ctx: CheckContext) -> list[Issue]:
                     message=f"CNAME at {_short_owner(owner, ctx.domain)} coexists with other record types",
                     details=(
                         "RFC 1912 §2.4: a CNAME may not exist at the same owner name as any "
-                        "other record. Remove either the CNAME or the conflicting records."
+                        "other record. The CNAME is the RFC violator, so --fix drops it and "
+                        "keeps the coexisting records (e.g. for _dmarc.* the DMARC TXT policy "
+                        "is preserved)."
                     ),
-                    affected=affected,
-                    fixable=False,
-                    fix_description="Manual: remove the CNAME or the conflicting records.",
+                    affected=cname_lines + other_lines,
+                    fixable=True,
+                    fix_description=(
+                        f"Drop the {len(cname_lines)} CNAME record(s) at "
+                        f"{_short_owner(owner, ctx.domain)}, keep the coexisting records."
+                    ),
                 )
             )
         if "CNAME" in types and owner == ctx.origin:
@@ -487,12 +499,12 @@ def check_cname_conflicts(ctx: CheckContext) -> list[Issue]:
                     message="CNAME present at the zone apex",
                     details=(
                         "RFC 1034/1912: the apex must contain SOA and NS records, so a CNAME "
-                        "there is invalid. Use an A/AAAA record (or an ALIAS/ANAME if the "
-                        "provider supports flattening)."
+                        "there is invalid. --fix drops the apex CNAME; add an A/AAAA record "
+                        "(or a provider ALIAS/ANAME) afterwards if the apex needs to resolve."
                     ),
                     affected=cname_records,
-                    fixable=False,
-                    fix_description="Manual: replace apex CNAME with A/AAAA or provider ALIAS.",
+                    fixable=True,
+                    fix_description="Drop the apex CNAME (keeps SOA/NS).",
                 )
             )
     return issues
@@ -662,6 +674,25 @@ def plan_fix_records(
             )
             keep.append(new)
             fixed.append(issue)
+        elif issue.code in {"CNAME_COLLISION", "CNAME_AT_APEX"}:
+            # The CNAME is the RFC violator when it coexists with other records;
+            # drop every CNAME in the affected set and keep the rest.
+            to_drop: set[tuple[str, int, str, str, str]] = set()
+            for entry in issue.affected:
+                parts = entry.split(" ", 4)
+                if len(parts) < 5:
+                    continue
+                owner, ttl_text, klass, rtype, value = parts
+                if rtype != "CNAME":
+                    continue
+                try:
+                    ttl = int(ttl_text)
+                except ValueError:
+                    continue
+                to_drop.add((owner, ttl, klass, rtype, value))
+            if to_drop:
+                keep = [r for r in keep if r.exact_key not in to_drop]
+                fixed.append(issue)
     return tuple(sorted(keep)), fixed
 
 
@@ -752,51 +783,132 @@ def analyze_provider_records(
     )
 
 
+def _normalized_to_provider_dict(record: NormalizedRecord, origin: str) -> dict[str, object]:
+    """Convert a NormalizedRecord back to a provider-style dict for create_record.
+
+    Targets Cloudflare's conventions (raw TXT payload without outer quotes,
+    MX priority as a separate field, bare hostnames for NS/CNAME). Other
+    providers happen to accept this shape too.
+    """
+    rtype = record.record_type
+    name_short = record.owner.rstrip(".")
+    origin_bare = origin.rstrip(".")
+    if name_short == origin_bare:
+        name: str = "@"
+    elif name_short.endswith("." + origin_bare):
+        name = name_short[: -(len(origin_bare) + 1)]
+    else:
+        name = name_short
+    out: dict[str, object] = {"type": rtype, "name": name, "ttl": record.ttl}
+    value = record.value
+    if rtype == "TXT":
+        out["content"] = _txt_payload(value)
+    elif rtype == "MX":
+        parts = value.split(" ", 1)
+        if len(parts) == 2 and parts[0].isdigit():
+            out["priority"] = int(parts[0])
+            out["content"] = parts[1].rstrip(".")
+        else:
+            out["content"] = value.rstrip(".")
+    elif rtype in {"CNAME", "NS", "PTR"}:
+        out["content"] = value.rstrip(".")
+    else:
+        out["content"] = value
+    return out
+
+
+def _apply_granular_provider_fixes(
+    provider,
+    *,
+    domain: str,
+    origin: str,
+    provider_records: list[Mapping[str, object]],
+    current_records: tuple[NormalizedRecord, ...],
+    desired_records: tuple[NormalizedRecord, ...],
+) -> None:
+    """Diff current → desired and apply via create_record / delete_record.
+
+    Preserves proxied state, comments, and any record the provider's BIND
+    import would have rejected — none of those survive the destructive
+    delete_all + import_zone pattern.
+    """
+    # Map current NormalizedRecord.exact_key → provider record id.
+    id_map: dict[tuple, str] = {}
+    for raw in provider_records:
+        rid = raw.get("id")
+        if not rid:
+            continue
+        converted = records_from_provider_dicts([raw], origin=origin)
+        if converted:
+            id_map[converted[0].exact_key] = str(rid)
+
+    current_keys = {record.exact_key for record in current_records}
+    desired_keys = {record.exact_key for record in desired_records}
+    desired_by_key = {record.exact_key: record for record in desired_records}
+
+    for key in current_keys - desired_keys:
+        # Never try to delete SOA — providers manage it themselves.
+        if key[3] == "SOA":
+            continue
+        record_id = id_map.get(key)
+        if not record_id:
+            continue
+        provider.delete_record(domain, record_id)  # type: ignore[attr-defined]
+
+    for key in desired_keys - current_keys:
+        record = desired_by_key[key]
+        if record.record_type == "SOA":
+            continue
+        provider.create_record(  # type: ignore[attr-defined]
+            domain,
+            _normalized_to_provider_dict(record, origin),
+        )
+
+
 def _ensure_external_dmarc_auth(
     provider,
     *,
     source_domain: str,
     receiver_domain: str,
     backup_dir: Path,
-) -> Path | None:
+) -> bool:
     """Ensure ``receiver_domain`` (on ``provider``) publishes the DMARC report
     authorization TXT record for ``source_domain``.
 
-    Returns the backup path when the receiver zone was rewritten, ``None`` when
-    the record already existed.
+    The receiver zone is NEVER rewritten in bulk — that would silently drop
+    proxied state and any record the provider's BIND import rejects. We only
+    proceed when ``provider`` exposes a single-record-add hook
+    (``create_record``); for everything else the caller leaves the issue
+    unresolved so the user sees the suggested record and adds it manually.
+
+    Returns ``True`` when the auth record was added or already present,
+    ``False`` when the provider cannot add it.
     """
+    del backup_dir  # No bulk rewrite happens here, so no backup is taken.
     source_label = source_domain.rstrip(".")
     receiver_label = receiver_domain.rstrip(".")
-    auth_owner = f"{source_label}._report._dmarc.{receiver_label}."
-    receiver_records = list(provider.list_records(receiver_label))
-    for record in receiver_records:
+    auth_short = f"{source_label}._report._dmarc"
+    auth_fqdn = f"{auth_short}.{receiver_label}."
+    for record in provider.list_records(receiver_label):
         if str(record.get("type", "")).upper() != "TXT":
             continue
         name = str(record.get("name", "")).rstrip(".").lower()
-        if name == auth_owner.rstrip(".").lower():
+        if name == auth_fqdn.rstrip(".").lower():
             payload = _txt_payload(str(record.get("content", "")))
             if "v=DMARC1" in payload:
-                return None
-    origin = receiver_label + "."
-    current = records_from_provider_dicts(receiver_records, origin=origin)
-    new = NormalizedRecord(
-        owner=auth_owner,
-        ttl=3600,
-        record_class="IN",
-        record_type="TXT",
-        value='"v=DMARC1;"',
-        source_order=len(current),
+                return True
+    if not hasattr(provider, "create_record"):
+        return False
+    provider.create_record(  # type: ignore[attr-defined]
+        receiver_label,
+        {
+            "type": "TXT",
+            "name": auth_short,
+            "content": "v=DMARC1;",
+            "ttl": 3600,
+        },
     )
-    augmented = tuple(sorted([*current, new]))
-    zone_text = provider.export_zone(receiver_label)
-    backup_path = _write_backup(
-        backup_dir / f"doctor-external-{receiver_label}-{_timestamp()}.zone",
-        zone_text,
-        create_parents=True,
-    )
-    provider.delete_all_records(receiver_label)
-    provider.import_zone(receiver_label, serialize_records(augmented))
-    return backup_path
+    return True
 
 
 def fix_provider_zone(
@@ -831,10 +943,23 @@ def fix_provider_zone(
         create_parents=True,
     )
     if fixed:
-        cleaned_text = serialize_records(new_records)
-        # Replace the live zone with the cleaned record set.
-        provider.delete_all_records(domain)
-        provider.import_zone(domain, cleaned_text)
+        granular = hasattr(provider, "create_record") and hasattr(provider, "delete_record")
+        if granular:
+            _apply_granular_provider_fixes(
+                provider,
+                domain=domain,
+                origin=origin,
+                provider_records=provider_records,
+                current_records=records,
+                desired_records=new_records,
+            )
+        else:
+            cleaned_text = serialize_records(new_records)
+            # Fallback for providers without per-record APIs: replace the live
+            # zone with the cleaned set. Loses proxied state and any record
+            # the provider's BIND import rejects.
+            provider.delete_all_records(domain)
+            provider.import_zone(domain, cleaned_text)
 
     # Resolve DMARC external-destination issues whose receiver is on the same provider.
     external_issues = [issue for issue in issues if issue.code == "DMARC_EXTERNAL_DESTINATION"]
@@ -848,7 +973,7 @@ def fix_provider_zone(
             if receiver not in managed:
                 continue
             try:
-                _ensure_external_dmarc_auth(
+                added = _ensure_external_dmarc_auth(
                     provider,
                     source_domain=domain,
                     receiver_domain=receiver,
@@ -858,7 +983,8 @@ def fix_provider_zone(
                 # Surface as unresolved by skipping the "fixed" mark; the original
                 # issue stays in the report so the user sees what still needs doing.
                 continue
-            fixed.append(issue)
+            if added:
+                fixed.append(issue)
     return DoctorReport(
         target=f"{provider_key}/{domain}",
         domain=domain,

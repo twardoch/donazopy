@@ -131,6 +131,49 @@ www IN A 192.0.2.2
     assert len(collision) == 1
 
 
+def test_plan_fix_records_when_cname_collision_then_drops_cname_keeps_other() -> None:
+    """User case: _dmarc has both a CNAME (e.g. to dmarc.ionos.com) and a TXT
+    (the real DMARC policy). --fix must drop the CNAME and keep the TXT."""
+    from donazopy.zonefile import NormalizedRecord
+
+    base = _records(
+        """$ORIGIN fontlab.ai.
+$TTL 3600
+@ IN SOA ns.fontlab.ai. hostmaster.fontlab.ai. 1 7200 3600 1209600 3600
+@ IN NS ns.fontlab.ai.
+ns IN A 192.0.2.1
+@ IN MX 10 mail.fontlab.ai.
+mail IN A 192.0.2.2
+_dmarc IN TXT "v=DMARC1; p=none; rua=mailto:dmarc@fontlab.com"
+""",
+        origin="fontlab.ai.",
+    )
+    # Inject the conflicting CNAME at _dmarc (dnspython would reject this at parse).
+    cname = NormalizedRecord(
+        owner="_dmarc.fontlab.ai.",
+        ttl=1,
+        record_class="IN",
+        record_type="CNAME",
+        value="dmarc.ionos.com.",
+        source_order=len(base),
+    )
+    records = (*base, cname)
+
+    issues = analyze_records(records, domain="fontlab.ai", provider_key="cloudflare")
+    collision = next(i for i in issues if i.code == "CNAME_COLLISION")
+    assert collision.fixable
+
+    new_records, fixed = plan_fix_records(records, issues, origin="fontlab.ai.")
+
+    fixed_codes = {issue.code for issue in fixed}
+    assert "CNAME_COLLISION" in fixed_codes
+    # The CNAME must be gone; the DMARC TXT must remain.
+    dmarc_records = [r for r in new_records if r.owner == "_dmarc.fontlab.ai."]
+    assert len(dmarc_records) == 1
+    assert dmarc_records[0].record_type == "TXT"
+    assert "v=DMARC1" in dmarc_records[0].value
+
+
 def test_check_missing_caa_when_no_caa_then_info() -> None:
     text = """$ORIGIN example.com.
 $TTL 3600
@@ -353,7 +396,8 @@ _dmarc IN TXT "v=DMARC1; p=none; rua=mailto:dmarc@fontlab.com"
 
 def test_fix_provider_zone_when_external_receiver_on_same_provider_then_authorizes() -> None:
     """When the rua receiver domain is managed by the same provider, the doctor
-    must add the authorization TXT record to the receiver zone."""
+    must add the authorization TXT record using a single-record-add API — it
+    must NOT delete-all + re-import the receiver zone (which is destructive)."""
     from typing import Any
 
     class FakeMultiZoneProvider:
@@ -376,6 +420,7 @@ def test_fix_provider_zone_when_external_receiver_on_same_provider_then_authoriz
             }
             self.deleted: list[str] = []
             self.imported: list[tuple[str, str]] = []
+            self.created_records: list[tuple[str, dict[str, Any]]] = []
 
         def list_zones(self) -> list[str]:
             return list(self.zones.keys())
@@ -384,13 +429,88 @@ def test_fix_provider_zone_when_external_receiver_on_same_provider_then_authoriz
             return list(self.zones[domain.rstrip(".")])
 
         def export_zone(self, domain: str) -> str:
-            origin = domain.rstrip(".") + "."
-            records = records_from_zone_text(
-                f"$ORIGIN {origin}\n$TTL 3600\n@ IN SOA ns.cloudflare.com. dns.cloudflare.com. 1 7200 3600 1209600 3600\n@ IN NS ns.cloudflare.com.\n",
-                origin,
-            )
-            del records  # only used to satisfy the type
             from donazopy.zonefile import records_from_provider_dicts, serialize_records
+            origin = domain.rstrip(".") + "."
+            return serialize_records(records_from_provider_dicts(self.zones[domain.rstrip(".")], origin=origin))
+
+        def delete_all_records(self, domain: str) -> dict[str, Any]:
+            self.deleted.append(domain.rstrip("."))
+            self.zones[domain.rstrip(".")] = []
+            return {"deleted": 1}
+
+        def import_zone(self, domain: str, zone_text: str, *, proxied: bool | None = None) -> dict[str, Any]:
+            self.imported.append((domain.rstrip("."), zone_text))
+            return {"imported": True}
+
+        def create_record(self, domain: str, record: dict[str, Any]) -> dict[str, Any]:
+            self.created_records.append((domain.rstrip("."), record))
+            new = {**record, "id": f"created-{len(self.created_records)}"}
+            self.zones[domain.rstrip(".")].append(new)
+            return new
+
+        def delete_record(self, domain: str, record_id: str) -> dict[str, Any]:
+            zone = self.zones[domain.rstrip(".")]
+            self.zones[domain.rstrip(".")] = [r for r in zone if r.get("id") != record_id]
+            return {"id": record_id}
+
+    from donazopy.doctor import fix_provider_zone
+
+    provider = FakeMultiZoneProvider()
+    # Give every primary-zone record an id so the granular path can target them.
+    for index, rec in enumerate(provider.zones["fontlab.app"]):
+        rec.setdefault("id", f"app-{index}")
+    for index, rec in enumerate(provider.zones["fontlab.com"]):
+        rec.setdefault("id", f"com-{index}")
+
+    report = fix_provider_zone(
+        provider, domain="fontlab.app", provider_key="cloudflare", backup_dir=Path("/tmp"),
+    )
+
+    fixed_codes = {issue.code for issue in report.fixed}
+    assert "DMARC_EXTERNAL_DESTINATION" in fixed_codes
+    # Receiver zone must have been touched by create_record only.
+    receiver_creates = [rec for dom, rec in provider.created_records if dom == "fontlab.com"]
+    assert receiver_creates, "expected the auth record to be added via create_record"
+    assert receiver_creates[-1]["name"] == "fontlab.app._report._dmarc"
+    assert receiver_creates[-1]["type"] == "TXT"
+    assert "v=DMARC1" in receiver_creates[-1]["content"]
+    # Critical: NEITHER zone is wiped + re-imported (granular path is used).
+    assert "fontlab.com" not in provider.deleted
+    assert "fontlab.app" not in provider.deleted
+    assert not any(dom == "fontlab.com" for dom, _ in provider.imported)
+    assert not any(dom == "fontlab.app" for dom, _ in provider.imported)
+
+
+def test_fix_provider_zone_when_provider_lacks_create_record_then_unfixed() -> None:
+    """If the provider exposes no single-record-add API, the receiver zone is
+    left untouched and the issue stays unresolved with copy-paste guidance."""
+    from typing import Any
+
+    class FakeBulkOnlyProvider:
+        def __init__(self) -> None:
+            self.zones: dict[str, list[dict[str, Any]]] = {
+                "fontlab.app": [
+                    {"type": "SOA", "name": "@", "ttl": 3600,
+                     "content": "ns.example. hostmaster.example. 1 7200 3600 1209600 3600"},
+                    {"type": "NS", "name": "@", "ttl": 3600, "content": "ns.example"},
+                    {"type": "MX", "name": "@", "ttl": 3600, "content": "mail.fontlab.app", "prio": 10},
+                    {"type": "TXT", "name": "_dmarc", "ttl": 3600,
+                     "content": "v=DMARC1; p=none; rua=mailto:dmarc@fontlab.com"},
+                ],
+                "fontlab.com": [],
+            }
+            self.deleted: list[str] = []
+            self.imported: list[tuple[str, str]] = []
+
+        def list_zones(self) -> list[str]:
+            return list(self.zones.keys())
+
+        def list_records(self, domain: str) -> list[dict[str, Any]]:
+            return list(self.zones[domain.rstrip(".")])
+
+        def export_zone(self, domain: str) -> str:
+            from donazopy.zonefile import records_from_provider_dicts, serialize_records
+            origin = domain.rstrip(".") + "."
             return serialize_records(records_from_provider_dicts(self.zones[domain.rstrip(".")], origin=origin))
 
         def delete_all_records(self, domain: str) -> dict[str, Any]:
@@ -404,18 +524,18 @@ def test_fix_provider_zone_when_external_receiver_on_same_provider_then_authoriz
 
     from donazopy.doctor import fix_provider_zone
 
-    provider = FakeMultiZoneProvider()
+    provider = FakeBulkOnlyProvider()
     report = fix_provider_zone(
         provider, domain="fontlab.app", provider_key="cloudflare", backup_dir=Path("/tmp"),
     )
 
     fixed_codes = {issue.code for issue in report.fixed}
-    assert "DMARC_EXTERNAL_DESTINATION" in fixed_codes
-    # The receiver zone must have been rewritten with the auth record.
-    receiver_imports = [text for dom, text in provider.imported if dom == "fontlab.com"]
-    assert receiver_imports, "expected the receiver zone to be re-imported"
-    assert "fontlab.app._report._dmarc.fontlab.com." in receiver_imports[-1]
-    assert "fontlab.com" in provider.deleted
+    issue_codes = {issue.code for issue in report.issues}
+    assert "DMARC_EXTERNAL_DESTINATION" in issue_codes
+    assert "DMARC_EXTERNAL_DESTINATION" not in fixed_codes
+    # Critical safety guarantee: receiver zone is never wiped + re-imported.
+    assert "fontlab.com" not in provider.deleted
+    assert not any(dom == "fontlab.com" for dom, _ in provider.imported)
 
 
 def test_fix_provider_zone_when_external_receiver_not_on_provider_then_unfixed() -> None:

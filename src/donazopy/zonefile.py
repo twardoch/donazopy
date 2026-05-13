@@ -361,6 +361,60 @@ def filter_records(
     return tuple(kept)
 
 
+_DNS_TYPES_FOR_FILTER = {
+    "A", "AAAA", "CAA", "CDNSKEY", "CDS", "CERT", "CNAME", "CSYNC", "DHCID",
+    "DLV", "DNAME", "DNSKEY", "DS", "EUI48", "EUI64", "HINFO", "HIP", "HTTPS",
+    "IPSECKEY", "KEY", "KX", "LOC", "MX", "NAPTR", "NS", "NSEC", "NSEC3",
+    "NSEC3PARAM", "OPENPGPKEY", "PTR", "RP", "RRSIG", "SMIMEA", "SOA", "SPF",
+    "SRV", "SSHFP", "SVCB", "TLSA", "TXT", "URI",
+}
+
+
+def _line_record_type(line: str) -> str | None:
+    """Heuristically extract the DNS type token from one BIND-style line."""
+    tokens = line.split()
+    for index, token in enumerate(tokens):
+        if token.upper() == "IN" and index + 1 < len(tokens):
+            candidate = tokens[index + 1].upper()
+            if candidate in _DNS_TYPES_FOR_FILTER:
+                return candidate
+    for token in tokens:
+        upper = token.upper()
+        if upper in _DNS_TYPES_FOR_FILTER:
+            return upper
+    return None
+
+
+def filter_zone_text_lenient(
+    text: str,
+    *,
+    skip_ns: bool = False,
+    skip_types: Iterable[str] = (),
+) -> str:
+    """Drop NS / unwanted types from BIND text using a line-based heuristic.
+
+    Used as a fallback when strict dnspython parsing rejects the input (e.g.
+    Cloudflare exports that include records dnspython considers out-of-zone).
+    Preserves comments, ``$ORIGIN`` / ``$TTL`` directives, blank lines, and
+    every record whose type is not skipped. Always keeps ``SOA`` records.
+    """
+    skip_upper = {entry.strip().upper() for entry in skip_types if entry.strip()}
+    if skip_ns:
+        skip_upper.add("NS")
+    skip_upper.discard("SOA")
+    out: list[str] = []
+    for raw_line in text.splitlines():
+        body = raw_line.split(";", 1)[0].strip()
+        if not body or body.startswith("$"):
+            out.append(raw_line)
+            continue
+        rtype = _line_record_type(body)
+        if rtype is not None and rtype in skip_upper:
+            continue
+        out.append(raw_line)
+    return "\n".join(out) + ("\n" if not text.endswith("\n") else "")
+
+
 def filter_zone_text(
     text: str,
     origin: str,
@@ -368,8 +422,15 @@ def filter_zone_text(
     skip_ns: bool = False,
     skip_types: Iterable[str] = (),
 ) -> str:
-    """Parse BIND zone text, apply NS/type filters, and return canonical BIND text."""
-    records = records_from_zone(parse_zone_text(text, origin))
+    """Parse BIND zone text, apply NS/type filters, and return canonical BIND text.
+
+    Falls back to a line-based filter when strict dnspython parsing rejects
+    the input (e.g. provider exports that include out-of-zone records).
+    """
+    try:
+        records = records_from_zone(parse_zone_text(text, origin))
+    except (ZoneFileError, dns.exception.DNSException, ValueError):
+        return filter_zone_text_lenient(text, skip_ns=skip_ns, skip_types=skip_types)
     filtered = filter_records(records, skip_ns=skip_ns, skip_types=skip_types)
     return serialize_records(tuple(sorted(filtered)))
 

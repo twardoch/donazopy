@@ -170,15 +170,52 @@ class Donazopy:
         overwrite: bool = False,
         skip_ns: bool = False,
         skip_types: str | None = None,
-    ) -> str:
-        """Export a zone as BIND text, optionally dropping NS records or given types."""
+    ) -> str | Mapping[str, str]:
+        """Export a zone as BIND text, optionally dropping NS records or given types.
+
+        Wildcard targets (``provider/*``) iterate every zone the provider
+        manages and require ``--output=DIR`` — each zone is written to
+        ``DIR/<domain>.zone`` and the return value is a ``{domain: path}`` map.
+        """
         key, parsed = self._resolve_target(target)
+        provider = self._dns_provider(key, dotenv_path)
+        skip_types_tuple = _split_types(skip_types)
+
+        if parsed.domain in (None, "*"):
+            if output is None:
+                msg = (
+                    f"target {target!r} matches every zone on {key!r}; pass "
+                    "--output=DIR so each zone can be written to DIR/<domain>.zone"
+                )
+                raise TargetError(msg)
+            out_dir = Path(output)
+            if out_dir.exists() and not out_dir.is_dir():
+                msg = f"--output={output!r} exists and is not a directory"
+                raise TargetError(msg)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            written: dict[str, str] = {}
+            for domain in provider.list_zones():
+                zone_text = provider.export_zone(domain)
+                origin = domain.rstrip(".") + "."
+                filtered = filter_zone_text(zone_text, origin, skip_ns=skip_ns, skip_types=skip_types_tuple)
+                destination = out_dir / f"{domain.rstrip('.')}.zone"
+                write_text_safely(destination, filtered, overwrite=overwrite)
+                written[domain] = str(destination)
+            return written
+
         domain = self._require_domain(parsed)
-        zone_text = self._dns_provider(key, dotenv_path).export_zone(domain)
+        zone_text = provider.export_zone(domain)
         origin = domain.rstrip(".") + "."
-        filtered = filter_zone_text(zone_text, origin, skip_ns=skip_ns, skip_types=_split_types(skip_types))
+        filtered = filter_zone_text(zone_text, origin, skip_ns=skip_ns, skip_types=skip_types_tuple)
         if output is not None:
-            write_text_safely(Path(output), filtered, overwrite=overwrite)
+            destination = Path(output)
+            if destination.exists() and destination.is_dir():
+                destination = destination / f"{domain.rstrip('.')}.zone"
+            elif not destination.suffix and not destination.exists():
+                # Empty / nonexistent path ending in / (or otherwise extension-less): treat as directory.
+                destination.mkdir(parents=True, exist_ok=True)
+                destination = destination / f"{domain.rstrip('.')}.zone"
+            write_text_safely(destination, filtered, overwrite=overwrite)
         return filtered
 
     def import_zone(
@@ -187,12 +224,26 @@ class Donazopy:
         path: str,
         dotenv_path: str | None = None,
         proxied: bool | None = None,
+        clean: bool = False,
     ) -> Mapping[str, object]:
-        """Import BIND zone text from ``path`` into the domain in ``target``."""
+        """Import BIND zone text from ``path`` into the domain in ``target``.
+
+        With ``--clean``, every existing record in the target zone is removed
+        first via ``delete_all_records``. Use this when the imported file is
+        meant to be the complete state of the zone rather than an additive
+        patch (Cloudflare's BIND import is additive by default).
+        """
         key, parsed = self._resolve_target(target)
         domain = self._require_domain(parsed)
+        provider = self._dns_provider(key, dotenv_path)
         zone_text = Path(path).read_text(encoding="utf-8")
-        return self._dns_provider(key, dotenv_path).import_zone(domain, zone_text, proxied=proxied)
+        cleaned: Mapping[str, object] | None = None
+        if clean:
+            cleaned = provider.delete_all_records(domain)
+        import_result = provider.import_zone(domain, zone_text, proxied=proxied)
+        if cleaned is None:
+            return import_result
+        return {"cleaned": cleaned, "import_result": import_result}
 
     def create_zone(self, target: str, dotenv_path: str | None = None) -> Mapping[str, object]:
         """Create a hosted zone for the domain in ``target`` on its provider.
@@ -213,6 +264,7 @@ class Donazopy:
         skip_ns: bool = False,
         skip_types: str | None = None,
         replace: bool = False,
+        clean: bool = False,
         create: bool = True,
     ) -> Mapping[str, object]:
         """Copy a zone from ``source`` to ``dest``, optionally replacing existing records.
@@ -223,24 +275,94 @@ class Donazopy:
         migrating a domain to a new DNS host); pass ``--create=False`` to skip that. The
         result's ``created`` entry is the created/existing zone object, or ``None`` when
         the destination provider does not support zone creation.
-        """
-        source_key, source_target = self._resolve_target(source)
-        source_domain = self._require_domain(source_target)
-        dest_key, dest_target = self._resolve_target(dest)
-        dest_domain = source_domain if dest_target.domain in (None, "*") else dest_target.domain
 
-        source_zone_text = self._dns_provider(source_key, dotenv_path).export_zone(source_domain)
+        ``--clean`` is a synonym for ``--replace``: every existing record in the
+        destination zone is removed via ``delete_all_records`` before the copy.
+
+        Wildcard source (``provider/*``) iterates every zone the source provider
+        manages and copies each to the destination provider. The destination
+        target must omit the domain (or use ``*``); each zone is copied to the
+        same domain name on the destination side. Returns a list of per-domain
+        result dicts.
+        """
+        replace = replace or clean
+        source_key, source_target = self._resolve_target(source)
+        dest_key, dest_target = self._resolve_target(dest)
+        source_provider = self._dns_provider(source_key, dotenv_path)
+        dest_provider = self._dns_provider(dest_key, dotenv_path)
+
+        if source_target.domain in (None, "*"):
+            if dest_target.domain not in (None, "*"):
+                msg = (
+                    f"wildcard source {source!r} requires a wildcard destination "
+                    f"(e.g. {dest_key}/) so each zone is copied to its own "
+                    "matching domain on the destination"
+                )
+                raise TargetError(msg)
+            results: list[Mapping[str, object]] = []
+            for source_domain in source_provider.list_zones():
+                results.append(
+                    self._copy_single(
+                        source_key=source_key,
+                        source_target=source_target,
+                        source_domain=source_domain,
+                        source_provider=source_provider,
+                        dest_key=dest_key,
+                        dest_target=dest_target,
+                        dest_domain=source_domain,
+                        dest_provider=dest_provider,
+                        skip_ns=skip_ns,
+                        skip_types=skip_types,
+                        replace=replace,
+                        create=create,
+                    )
+                )
+            return {"copied": results, "count": len(results)}
+
+        source_domain = self._require_domain(source_target)
+        dest_domain = source_domain if dest_target.domain in (None, "*") else dest_target.domain
+        return self._copy_single(
+            source_key=source_key,
+            source_target=source_target,
+            source_domain=source_domain,
+            source_provider=source_provider,
+            dest_key=dest_key,
+            dest_target=dest_target,
+            dest_domain=dest_domain,
+            dest_provider=dest_provider,
+            skip_ns=skip_ns,
+            skip_types=skip_types,
+            replace=replace,
+            create=create,
+        )
+
+    def _copy_single(
+        self,
+        *,
+        source_key: str,
+        source_target: Target,
+        source_domain: str,
+        source_provider: DNSHostingProvider,
+        dest_key: str,
+        dest_target: Target,
+        dest_domain: str,
+        dest_provider: DNSHostingProvider,
+        skip_ns: bool,
+        skip_types: str | None,
+        replace: bool,
+        create: bool,
+    ) -> Mapping[str, object]:
+        del source_key, dest_key  # the per-call providers are already resolved
+        source_zone_text = source_provider.export_zone(source_domain)
         origin = source_domain.rstrip(".") + "."
         filtered = filter_zone_text(source_zone_text, origin, skip_ns=skip_ns, skip_types=_split_types(skip_types))
         exported_records = len([line for line in filtered.splitlines() if line.strip()])
 
-        dest_provider = self._dns_provider(dest_key, dotenv_path)
         created: Mapping[str, object] | None = None
         if create:
             try:
                 created = dest_provider.create_zone(dest_domain)
             except ProviderAPIError as error:
-                # Some providers create the DNS zone with the domain registration; tolerate that.
                 if "not supported" not in str(error).lower():
                     raise
         replaced: Mapping[str, object] | None = None
@@ -248,7 +370,7 @@ class Donazopy:
             replaced = dest_provider.delete_all_records(dest_domain)
         import_result = dest_provider.import_zone(dest_domain, filtered)
         return {
-            "source": source_target.to_dict(),
+            "source": {**source_target.to_dict(), "domain": source_domain},
             "dest": {**dest_target.to_dict(), "domain": dest_domain},
             "exported_records": exported_records,
             "created": created,

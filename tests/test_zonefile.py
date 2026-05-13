@@ -110,6 +110,26 @@ def test_records_from_zone_text_when_valid_then_returns_records() -> None:
     assert any(record.owner == "www.example.com." and record.record_type == "A" for record in records)
 
 
+def test_filter_zone_text_when_strict_parse_fails_then_lenient_fallback() -> None:
+    """Real-world: Cloudflare exports occasionally trip dnspython with a
+    ``non-origin SOA`` ValueError. The filter must still drop NS records via
+    a line-based fallback instead of crashing the caller."""
+    text = """$ORIGIN example.com.
+$TTL 3600
+example.com. 3600 IN SOA ns1.example.com. hostmaster.example.com. 1 7200 3600 1209600 3600
+example.com. 3600 IN NS ns1.example.com.
+example.com. 3600 IN NS ns-foreign.somewhere-else.tld.
+www.example.com. 3600 IN A 192.0.2.20
+unexpected.other-zone.tld. 3600 IN SOA something. else. 1 2 3 4 5
+"""
+
+    result = filter_zone_text(text, "example.com.", skip_ns=True)
+
+    assert " NS " not in result
+    assert "www.example.com. 3600 IN A 192.0.2.20" in result
+    assert " SOA " in result  # SOA is always preserved
+
+
 def test_write_text_safely_when_target_exists_without_overwrite_then_raises(tmp_path: Path) -> None:
     output_path = tmp_path / "existing.zone"
     output_path.write_text("existing", encoding="utf-8")

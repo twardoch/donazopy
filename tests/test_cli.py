@@ -163,6 +163,106 @@ def test_import_zone_when_path_given_then_calls_provider(
     assert dns_provider.imported and dns_provider.imported[0][0] == "example.com"
 
 
+def test_export_when_wildcard_target_then_writes_one_zone_file_per_domain(
+    cli: Donazopy, dns_provider: FakeDNSProvider, tmp_path: Path
+) -> None:
+    dns_provider.zone_text = ZONE_TEXT
+
+    result = cli.export("cloudflare/*", output=str(tmp_path / "zones"))
+
+    assert isinstance(result, dict)
+    assert "example.com" in result
+    written_path = Path(result["example.com"])
+    assert written_path.exists()
+    assert written_path.name == "example.com.zone"
+    assert "www.example.com." in written_path.read_text(encoding="utf-8")
+
+
+def test_export_when_wildcard_target_without_output_then_raises(
+    cli: Donazopy,
+) -> None:
+    with pytest.raises(TargetError, match="--output=DIR"):
+        cli.export("cloudflare/*")
+
+
+def test_export_when_output_is_existing_directory_then_writes_domain_named_file(
+    cli: Donazopy, tmp_path: Path
+) -> None:
+    out_dir = tmp_path / "exports"
+    out_dir.mkdir()
+
+    cli.export("cloudflare/example.com", output=str(out_dir))
+
+    assert (out_dir / "example.com.zone").exists()
+
+
+def test_import_zone_when_clean_then_wipes_target_first(
+    cli: Donazopy, dns_provider: FakeDNSProvider, tmp_path: Path
+) -> None:
+    zone_path = tmp_path / "example.com.zone"
+    zone_path.write_text(ZONE_TEXT, encoding="utf-8")
+
+    result = cli.import_zone("cloudflare/example.com", str(zone_path), clean=True)
+
+    assert dns_provider.deleted == ["example.com"]
+    assert dns_provider.imported and dns_provider.imported[0][0] == "example.com"
+    assert isinstance(result, dict)
+    assert "cleaned" in result
+    assert "import_result" in result
+
+
+def test_copy_when_clean_then_acts_as_replace(cli: Donazopy, dns_provider: FakeDNSProvider) -> None:
+    result = cli.copy("cloudflare/example.com", "cloudflare/*", clean=True, skip_ns=True)
+
+    assert dns_provider.deleted == ["example.com"]
+    assert result["replaced"] == {"deleted": 2, "failed": 0}
+
+
+def test_copy_when_wildcard_source_then_iterates_zones(
+    cli: Donazopy, dns_provider: FakeDNSProvider
+) -> None:
+    dns_provider.list_zones = lambda: ["example.com", "alpha.test", "beta.test"]  # type: ignore[method-assign]
+
+    result = cli.copy("cloudflare/*", "cloudflare/", clean=True, skip_ns=True)
+
+    assert isinstance(result, dict)
+    assert result["count"] == 3
+    copied = list(result["copied"])  # type: ignore[arg-type]
+    assert {entry["dest"]["domain"] for entry in copied} == {"example.com", "alpha.test", "beta.test"}
+    # Every destination zone was wiped before import (clean / replace).
+    assert set(dns_provider.deleted) == {"example.com", "alpha.test", "beta.test"}
+
+
+def test_copy_when_wildcard_source_with_concrete_dest_then_raises(cli: Donazopy) -> None:
+    with pytest.raises(TargetError, match="wildcard source"):
+        cli.copy("cloudflare/*", "cloudflare/example.com")
+
+
+def test_copy_when_dest_provider_only_then_inherits_source_domain(
+    cli: Donazopy, dns_provider: FakeDNSProvider
+) -> None:
+    """``provider/domain → provider2/`` must copy to the same domain name."""
+    result = cli.copy("cloudflare/example.com", "cloudflare/")
+
+    assert isinstance(result, dict)
+    assert result["dest"]["domain"] == "example.com"
+    assert dns_provider.imported and dns_provider.imported[0][0] == "example.com"
+
+
+def test_copy_when_wildcard_source_and_wildcard_dest_then_same_as_dest_only(
+    cli: Donazopy, dns_provider: FakeDNSProvider
+) -> None:
+    """``provider1/* → provider2/*`` is equivalent to ``provider1/* → provider2/``."""
+    dns_provider.list_zones = lambda: ["alpha.test", "beta.test"]  # type: ignore[method-assign]
+
+    result = cli.copy("cloudflare/*", "cloudflare/*", clean=True)
+
+    assert isinstance(result, dict)
+    assert result["count"] == 2
+    copied = list(result["copied"])  # type: ignore[arg-type]
+    assert {entry["dest"]["domain"] for entry in copied} == {"alpha.test", "beta.test"}
+
+
 def test_copy_when_replace_then_deletes_then_imports(cli: Donazopy, dns_provider: FakeDNSProvider) -> None:
     result = cli.copy("cloudflare/example.com", "cloudflare/*", replace=True, skip_ns=True)
 

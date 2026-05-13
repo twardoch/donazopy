@@ -233,3 +233,38 @@ def test_create_zone_when_zone_exists_then_returns_existing_zone(monkeypatch: py
 
     assert result["id"] == "zone-id"
     assert result["name"] == "example.com"
+
+
+def test_create_record_when_called_then_posts_single_record() -> None:
+    import json as _json
+
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/client/v4/zones" and request.method == "GET":
+            return httpx.Response(200, json=zone_payload())
+        if request.url.path == "/client/v4/zones/zone-id/dns_records" and request.method == "POST":
+            captured["body"] = _json.loads(request.content.decode("utf-8"))
+            return httpx.Response(
+                200,
+                json={
+                    "success": True,
+                    "result": {"id": "new-record-id", "type": "TXT", "name": "auth.example.com"},
+                },
+            )
+        return httpx.Response(404, json={"success": False, "errors": [{"message": "not found"}]})
+
+    provider = CloudflareProvider({"CLOUDFLARE_DNS_TOKEN": "token"}, client=make_cloudflare_client(handler))
+
+    result = provider.create_record(
+        "example.com",
+        {"type": "TXT", "name": "auth", "content": "v=DMARC1;", "ttl": 3600},
+    )
+
+    assert result["id"] == "new-record-id"
+    assert captured["body"] == {
+        "type": "TXT",
+        "name": "auth",
+        "content": "v=DMARC1;",
+        "ttl": 3600,
+    }

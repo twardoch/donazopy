@@ -147,6 +147,34 @@ class CloudflareProvider:
             "to choose one for zone creation."
         )
 
+    def delete_record(self, domain: str, record_id: str) -> Mapping[str, object]:
+        """Delete a single DNS record by its Cloudflare id."""
+        zone = self._zone(domain)
+        response = self._client.request(
+            "DELETE",
+            f"{self.api_base}/zones/{zone['id']}/dns_records/{record_id}",
+            headers=self._headers,
+        )
+        if response.status_code >= 400:
+            raise ProviderAPIError(_cloudflare_error_message(response))
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise ProviderAPIError("Cloudflare response was not a JSON object")
+        result = payload.get("result", {})
+        return result if isinstance(result, dict) else {"result": result}
+
+    def create_record(self, domain: str, record: Mapping[str, object]) -> Mapping[str, object]:
+        """Create a single DNS record in ``domain``.
+
+        ``record`` is a Cloudflare-shaped dict (``type``, ``name``, ``content``,
+        optionally ``ttl``, ``proxied``, ``priority``). Idempotent only at the
+        API level: Cloudflare rejects exact duplicates with a 81057 error.
+        """
+        zone = self._zone(domain)
+        payload = self._request("POST", f"/zones/{zone['id']}/dns_records", json=dict(record))
+        result = payload.get("result", {})
+        return result if isinstance(result, dict) else {"result": result}
+
     def delete_all_records(self, domain: str) -> Mapping[str, object]:
         zone = self._zone(domain)
         zone_id = zone["id"]
