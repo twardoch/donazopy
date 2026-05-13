@@ -300,24 +300,29 @@ class Donazopy:
                 )
                 raise TargetError(msg)
             results: list[Mapping[str, object]] = []
+            failures: list[Mapping[str, object]] = []
             for source_domain in source_provider.list_zones():
-                results.append(
-                    self._copy_single(
-                        source_key=source_key,
-                        source_target=source_target,
-                        source_domain=source_domain,
-                        source_provider=source_provider,
-                        dest_key=dest_key,
-                        dest_target=dest_target,
-                        dest_domain=source_domain,
-                        dest_provider=dest_provider,
-                        skip_ns=skip_ns,
-                        skip_types=skip_types,
-                        replace=replace,
-                        create=create,
+                try:
+                    results.append(
+                        self._copy_single(
+                            source_key=source_key,
+                            source_target=source_target,
+                            source_domain=source_domain,
+                            source_provider=source_provider,
+                            dest_key=dest_key,
+                            dest_target=dest_target,
+                            dest_domain=source_domain,
+                            dest_provider=dest_provider,
+                            skip_ns=skip_ns,
+                            skip_types=skip_types,
+                            replace=replace,
+                            create=create,
+                        )
                     )
-                )
-            return {"copied": results, "count": len(results)}
+                except ProviderAPIError as error:
+                    # One zone's failure must not abort the whole bulk run.
+                    failures.append({"domain": source_domain, "error": str(error)})
+            return {"copied": results, "failures": failures, "count": len(results)}
 
         source_domain = self._require_domain(source_target)
         dest_domain = source_domain if dest_target.domain in (None, "*") else dest_target.domain
@@ -475,31 +480,44 @@ class Donazopy:
 
         if parsed.domain in (None, "*"):
             reports = []
+            failures: list[Mapping[str, object]] = []
             for one_domain in provider.list_zones():
-                if fix:
-                    reports.append(
-                        fix_provider_zone(
-                            provider,
-                            domain=one_domain,
-                            provider_key=key,
-                            dmarc_email=dmarc_email,
+                try:
+                    if fix:
+                        reports.append(
+                            fix_provider_zone(
+                                provider,
+                                domain=one_domain,
+                                provider_key=key,
+                                dmarc_email=dmarc_email,
+                            )
                         )
-                    )
-                else:
-                    records = provider.list_records(one_domain)
-                    reports.append(
-                        analyze_provider_records(
-                            list(records),
-                            domain=one_domain,
-                            provider_key=key,
-                            dmarc_email=dmarc_email,
+                    else:
+                        records = provider.list_records(one_domain)
+                        reports.append(
+                            analyze_provider_records(
+                                list(records),
+                                domain=one_domain,
+                                provider_key=key,
+                                dmarc_email=dmarc_email,
+                            )
                         )
-                    )
+                except ProviderAPIError as error:
+                    failures.append({"domain": one_domain, "error": str(error)})
             combined_text = "\n".join(report.format_text() for report in reports)
+            if failures:
+                failure_lines = "\n".join(
+                    f"  - {entry['domain']}: {entry['error']}" for entry in failures
+                )
+                combined_text += f"\n\nFailures ({len(failures)}):\n{failure_lines}\n"
             if output is not None:
                 write_text_safely(Path(output), combined_text, overwrite=overwrite)
             if json:
-                return {"reports": [report.to_dict() for report in reports], "count": len(reports)}
+                return {
+                    "reports": [report.to_dict() for report in reports],
+                    "failures": failures,
+                    "count": len(reports),
+                }
             return combined_text
 
         domain = self._require_domain(parsed)

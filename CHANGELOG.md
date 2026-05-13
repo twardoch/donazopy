@@ -26,6 +26,11 @@ The format follows Keep a Changelog, and this project uses git-tag-derived seman
 - Wildcard export targets iterate every zone the provider manages. The CLI now requires `--output=DIR` for wildcards and writes each zone to `DIR/<domain>.zone` (creating the directory if needed). The return value is a `{domain: path}` map so callers can see exactly what was written.
 - For single-domain targets, `--output` may now be a directory: when the path exists as a directory (or is a non-existent path without a suffix), the CLI autogenerates `<output>/<domain>.zone`. Plain file paths still work as before.
 
+### Fixed — bulk runs (`copy cloudflare/* …`, `doctor cloudflare/*`) survive transient errors
+
+- Cloudflare 502 Bad Gateway and similar transient infrastructure errors (429, 500, 502, 503, 504) now retry up to 4 times with exponential backoff (1s, 2s, 4s, 8s) instead of aborting on the first failure. Applies to every Cloudflare HTTP call (`_request` and the direct `export_zone` call path).
+- The wildcard `copy` and `doctor` loops now catch `ProviderAPIError` per zone and continue with the next one. The result includes a `failures: [{domain, error}, ...]` entry so bulk runs surface what failed without aborting the whole loop. For `doctor`, the human-readable output appends a `Failures (N): …` section after the last report.
+
 ### Fixed — TXT records (and DMARC auth records) now created with canonical outer quotes
 
 - The doctor previously sent TXT content as the raw payload (e.g. `v=DMARC1;`). Cloudflare's dashboard then displayed it without quotes, leaving records that *worked* but looked non-canonical compared to operator-created records (which typically include the BIND-style `"..."` quotes).
