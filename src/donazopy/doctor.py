@@ -802,7 +802,13 @@ def _normalized_to_provider_dict(record: NormalizedRecord, origin: str) -> dict[
     out: dict[str, object] = {"type": rtype, "name": name, "ttl": record.ttl}
     value = record.value
     if rtype == "TXT":
-        out["content"] = _txt_payload(value)
+        # Always send the canonical quoted form: the payload wrapped in literal
+        # double quotes with inner quotes escaped. Cloudflare (and similar
+        # providers) preserve the quotes in their dashboard while normalizing
+        # the on-wire representation. Records previously created without quotes
+        # get re-created with quotes on the next ``--fix`` run.
+        payload = _txt_payload(value)
+        out["content"] = '"' + payload.replace('\\', '\\\\').replace('"', '\\"') + '"'
     elif rtype == "MX":
         parts = value.split(" ", 1)
         if len(parts) == 2 and parts[0].isdigit():
@@ -889,22 +895,34 @@ def _ensure_external_dmarc_auth(
     receiver_label = receiver_domain.rstrip(".")
     auth_short = f"{source_label}._report._dmarc"
     auth_fqdn = f"{auth_short}.{receiver_label}."
+    quoted_content = '"v=DMARC1;"'
+    stale_id: str | None = None
     for record in provider.list_records(receiver_label):
         if str(record.get("type", "")).upper() != "TXT":
             continue
         name = str(record.get("name", "")).rstrip(".").lower()
         if name == auth_fqdn.rstrip(".").lower():
-            payload = _txt_payload(str(record.get("content", "")))
-            if "v=DMARC1" in payload:
-                return True
+            raw_content = str(record.get("content", ""))
+            payload = _txt_payload(raw_content)
+            if "v=DMARC1" not in payload:
+                continue
+            if raw_content.startswith('"') and raw_content.endswith('"'):
+                return True  # already canonical
+            # Existing record is functional but unquoted; replace it.
+            if hasattr(provider, "delete_record") and record.get("id"):
+                stale_id = str(record["id"])
+                break
+            return True  # provider lacks deletion; leave alone
     if not hasattr(provider, "create_record"):
         return False
+    if stale_id is not None:
+        provider.delete_record(receiver_label, stale_id)  # type: ignore[attr-defined]
     provider.create_record(  # type: ignore[attr-defined]
         receiver_label,
         {
             "type": "TXT",
             "name": auth_short,
-            "content": "v=DMARC1;",
+            "content": quoted_content,
             "ttl": 3600,
         },
     )

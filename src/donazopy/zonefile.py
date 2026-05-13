@@ -337,6 +337,38 @@ def records_from_zone_text(text: str, origin: str) -> tuple[NormalizedRecord, ..
         return records_from_zone_text_lenient(text, origin)
 
 
+def _normalize_lenient_rdata(rtype: str, rdata: str) -> str | None:
+    """Normalize a line-extracted rdata into the form the strict parser would emit.
+
+    Returns ``None`` when the rdata is structurally unusable for the type
+    (e.g. a SOA with fewer than 7 fields), so the caller can skip it.
+    """
+    rdata = rdata.strip()
+    if not rdata:
+        return None
+    if rtype == "TXT":
+        # Keep quoted form if already quoted; else wrap in canonical quotes.
+        if rdata.startswith('"'):
+            return rdata
+        return '"' + rdata.replace('"', '\\"') + '"'
+    if rtype == "SOA":
+        return _normalize_soa_content(rdata) if len(rdata.split()) >= 7 else None
+    if rtype in {"CNAME", "NS", "PTR", "DNAME"}:
+        return _ensure_dot(rdata)
+    if rtype == "MX":
+        head, _, rest = rdata.partition(" ")
+        if head.isdigit() and rest:
+            return f"{head} {_ensure_dot(rest)}"
+        return _ensure_dot(rdata)
+    if rtype == "SRV":
+        # ``<priority> <weight> <port> <target>``; ensure target has a trailing dot.
+        parts = rdata.split()
+        if len(parts) >= 4:
+            return " ".join([*parts[:3], _ensure_dot(parts[3])])
+        return rdata
+    return rdata
+
+
 def records_from_zone_text_lenient(text: str, origin: str) -> tuple[NormalizedRecord, ...]:
     """Parse zone text line-by-line into :class:`NormalizedRecord` tuples.
 
@@ -406,13 +438,16 @@ def records_from_zone_text_lenient(text: str, origin: str) -> tuple[NormalizedRe
         if rtype is None or rtype not in _DNS_TYPES_FOR_FILTER:
             continue
         owner = _absolute_owner(owner_raw, current_origin)
+        normalized_value = _normalize_lenient_rdata(rtype, rdata.strip())
+        if normalized_value is None:
+            continue
         records.append(
             NormalizedRecord(
                 owner=owner,
                 ttl=ttl,
                 record_class=klass,
                 record_type=rtype,
-                value=rdata.strip(),
+                value=normalized_value,
                 source_order=index,
             )
         )

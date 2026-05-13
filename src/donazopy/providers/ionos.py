@@ -74,8 +74,39 @@ class IonosProvider:
         ]
         if not payload:
             return {"created": 0}
-        self._request("POST", f"/zones/{detail['id']}/records", json=payload)
-        return {"created": len(payload)}
+        zone_id = detail["id"]
+        try:
+            self._request("POST", f"/zones/{zone_id}/records", json=payload)
+            return {"created": len(payload)}
+        except ProviderAPIError as batch_error:
+            # IONOS rejects the whole batch when even one record is invalid.
+            # Retry per-record so we import what we can and surface what we cannot.
+            created = 0
+            rejected: list[Mapping[str, object]] = []
+            for record in payload:
+                try:
+                    self._request("POST", f"/zones/{zone_id}/records", json=[record])
+                    created += 1
+                except ProviderAPIError as single_error:
+                    rejected.append(
+                        {
+                            "name": record["name"],
+                            "type": record["type"],
+                            "content": record["content"],
+                            "error": str(single_error),
+                        }
+                    )
+            if rejected and created == 0:
+                # Nothing went through — preserve the original error context.
+                summary = "; ".join(
+                    f"{entry['name']} {entry['type']} ({entry['content']!r})" for entry in rejected[:5]
+                )
+                msg = (
+                    f"IONOS rejected every record. First {min(5, len(rejected))} of "
+                    f"{len(rejected)}: {summary}. Original batch error: {batch_error}"
+                )
+                raise ProviderAPIError(msg) from batch_error
+            return {"created": created, "rejected": rejected}
 
     def delete_all_records(self, domain: str) -> Mapping[str, object]:
         detail = self._zone_detail(domain)

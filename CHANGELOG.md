@@ -26,6 +26,22 @@ The format follows Keep a Changelog, and this project uses git-tag-derived seman
 - Wildcard export targets iterate every zone the provider manages. The CLI now requires `--output=DIR` for wildcards and writes each zone to `DIR/<domain>.zone` (creating the directory if needed). The return value is a `{domain: path}` map so callers can see exactly what was written.
 - For single-domain targets, `--output` may now be a directory: when the path exists as a directory (or is a non-existent path without a suffix), the CLI autogenerates `<output>/<domain>.zone`. Plain file paths still work as before.
 
+### Fixed — TXT records (and DMARC auth records) now created with canonical outer quotes
+
+- The doctor previously sent TXT content as the raw payload (e.g. `v=DMARC1;`). Cloudflare's dashboard then displayed it without quotes, leaving records that *worked* but looked non-canonical compared to operator-created records (which typically include the BIND-style `"..."` quotes).
+- `_normalized_to_provider_dict` now always sends TXT content in canonical quoted form (`"v=DMARC1;"` with inner quotes / backslashes escaped). Affects every TXT the granular create/delete path creates: the auto-added DMARC monitoring record, the kept canonical version after `TXT_SEMANTIC_DUPLICATE` resolution, and any TXT re-created via the diff path.
+- `_ensure_external_dmarc_auth` sends the receiver-side authorization record as `"v=DMARC1;"` (literal quotes). When an existing unquoted authorization record is found (e.g. one this tool wrote in an earlier release), the doctor now deletes it and re-creates the canonical quoted version — no manual cleanup needed.
+
+### Fixed — `ionos.import_zone` retries per-record on batch rejection
+
+- IONOS rejects an entire `POST /zones/{id}/records` payload when even one record is invalid, with the unhelpful message "Record is invalid." × N. This made `donazopy copy cloudflare/* ionos/` impossible: a single quirky record (e.g. an `_acme-challenge` TXT with characters IONOS dislikes) blocked every other record from being imported.
+- On batch failure, `ionos.import_zone` now retries each record individually. Records that succeed are imported; records that fail are returned in a structured `rejected: [{name, type, content, error}, ...]` list inside the result so callers (and the user) see exactly what was rejected. If every record fails, the call still raises `ProviderAPIError`, but with a summary of the first few rejected records and the original batch error preserved.
+
+### Fixed — lenient parser now produces canonical rdata that IONOS accepts
+
+- `records_from_zone_text_lenient` previously returned record values as raw line text, which the strict dnspython parser would have normalized (trailing dots on CNAME/NS/MX/PTR, proper quoting on TXT, etc.). IONOS rejected these as "Record is invalid" during `donazopy copy cloudflare/* ionos/`.
+- Added `_normalize_lenient_rdata(rtype, rdata)` that mirrors the strict parser's output: TXT values get canonical quotes; CNAME/NS/PTR/DNAME get a trailing dot; MX gets `priority target.` (priority preserved, target absolutized); SRV gets `priority weight port target.`; SOA short-form rdata is skipped.
+
 ### Fixed — `records_from_zone_text` falls back to a lenient parser
 
 - The strict dnspython parser raises `ValueError: add() has non-origin SOA` (and similar) on real-world Cloudflare exports whose BIND text includes records dnspython considers out-of-zone. Every code path that round-tripped through `records_from_zone_text` — notably `ionos.import_zone` during `donazopy copy cloudflare/* ionos/` — crashed.

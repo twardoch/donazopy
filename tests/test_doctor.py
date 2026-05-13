@@ -521,12 +521,105 @@ def test_fix_provider_zone_when_external_receiver_on_same_provider_then_authoriz
     assert receiver_creates, "expected the auth record to be added via create_record"
     assert receiver_creates[-1]["name"] == "fontlab.app._report._dmarc"
     assert receiver_creates[-1]["type"] == "TXT"
-    assert "v=DMARC1" in receiver_creates[-1]["content"]
+    # Content must be sent with literal outer quotes so Cloudflare displays
+    # the record canonically and other providers parse it as BIND-style.
+    assert receiver_creates[-1]["content"] == '"v=DMARC1;"'
     # Critical: NEITHER zone is wiped + re-imported (granular path is used).
     assert "fontlab.com" not in provider.deleted
     assert "fontlab.app" not in provider.deleted
     assert not any(dom == "fontlab.com" for dom, _ in provider.imported)
     assert not any(dom == "fontlab.app" for dom, _ in provider.imported)
+
+
+def test_ensure_external_dmarc_auth_when_existing_record_unquoted_then_replaces() -> None:
+    """An existing auth record stored without outer quotes must be replaced
+    with the canonical quoted form on the next ``--fix`` run."""
+    from typing import Any
+
+    from donazopy.doctor import _ensure_external_dmarc_auth
+
+    class StubProvider:
+        def __init__(self) -> None:
+            self.records = [
+                {
+                    "id": "stale-id",
+                    "type": "TXT",
+                    "name": "fontlab.app._report._dmarc.fontlab.com",
+                    "content": "v=DMARC1;",  # unquoted!
+                    "ttl": 3600,
+                }
+            ]
+            self.deleted: list[str] = []
+            self.created: list[dict[str, Any]] = []
+
+        def list_records(self, domain: str) -> list[dict[str, Any]]:
+            return list(self.records)
+
+        def delete_record(self, domain: str, record_id: str) -> dict[str, Any]:
+            self.deleted.append(record_id)
+            self.records = [r for r in self.records if r["id"] != record_id]
+            return {"id": record_id}
+
+        def create_record(self, domain: str, record: dict[str, Any]) -> dict[str, Any]:
+            self.created.append(record)
+            return {**record, "id": "new-id"}
+
+    provider = StubProvider()
+    added = _ensure_external_dmarc_auth(
+        provider,
+        source_domain="fontlab.app",
+        receiver_domain="fontlab.com",
+        backup_dir=Path("/tmp"),
+    )
+
+    assert added is True
+    assert provider.deleted == ["stale-id"]
+    assert len(provider.created) == 1
+    assert provider.created[0]["content"] == '"v=DMARC1;"'
+
+
+def test_ensure_external_dmarc_auth_when_existing_record_quoted_then_skips() -> None:
+    """An existing auth record already in canonical quoted form is left alone."""
+    from typing import Any
+
+    from donazopy.doctor import _ensure_external_dmarc_auth
+
+    class StubProvider:
+        def __init__(self) -> None:
+            self.records = [
+                {
+                    "id": "good-id",
+                    "type": "TXT",
+                    "name": "fontlab.app._report._dmarc.fontlab.com",
+                    "content": '"v=DMARC1;"',  # quoted!
+                    "ttl": 3600,
+                }
+            ]
+            self.deleted: list[str] = []
+            self.created: list[dict[str, Any]] = []
+
+        def list_records(self, domain: str) -> list[dict[str, Any]]:
+            return list(self.records)
+
+        def delete_record(self, domain: str, record_id: str) -> dict[str, Any]:
+            self.deleted.append(record_id)
+            return {"id": record_id}
+
+        def create_record(self, domain: str, record: dict[str, Any]) -> dict[str, Any]:
+            self.created.append(record)
+            return {**record, "id": "another-id"}
+
+    provider = StubProvider()
+    added = _ensure_external_dmarc_auth(
+        provider,
+        source_domain="fontlab.app",
+        receiver_domain="fontlab.com",
+        backup_dir=Path("/tmp"),
+    )
+
+    assert added is True
+    assert provider.deleted == []
+    assert provider.created == []
 
 
 def test_fix_provider_zone_when_provider_lacks_create_record_then_unfixed() -> None:
