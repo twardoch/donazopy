@@ -133,13 +133,43 @@ class Donazopy:
         """List the operational provider keys."""
         return list(_operational_keys())
 
-    def domains(self, provider: str, dotenv_path: str | None = None) -> list[str]:
+    def domains(
+        self,
+        provider: str,
+        dotenv_path: str | None = None,
+        cname: bool = False,
+    ) -> list[str]:
         """List the domains/zones managed by a provider.
 
         ``provider`` is a provider key (e.g. ``ionos``) or a target like ``ionos/*``.
+        With ``--cname``, also include each CNAME host within every zone as
+        ``<host> -> <target>`` lines interleaved after their parent domain.
         """
         key = self._provider_key(provider)
-        return self._dns_provider(key, dotenv_path).list_zones()
+        dns_provider = self._dns_provider(key, dotenv_path)
+        zones = dns_provider.list_zones()
+        if not cname:
+            return zones
+        entries: list[str] = []
+        for domain in zones:
+            entries.append(domain)
+            try:
+                records = dns_provider.list_records(domain)
+            except ProviderAPIError as error:
+                entries.append(f"  ! {domain}: {error}")
+                continue
+            apex = domain.rstrip(".")
+            for record in records:
+                if str(record.get("type", "")).upper() != "CNAME":
+                    continue
+                host = str(record.get("name", "")).rstrip(".")
+                target = str(record.get("content", "")).rstrip(".")
+                if host == apex or host == "" or host == "@":
+                    entries.append(f"    {target}")
+                else:
+                    entries.append(f"  {host}")
+                    entries.append(f"    {target}")
+        return entries
 
     def status(self, target: str | None = None, dotenv_path: str | None = None) -> dict[str, object]:
         """Show provider metadata and credential status.
