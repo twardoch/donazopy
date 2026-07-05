@@ -15,11 +15,11 @@ NS-migration check uses when available.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from donazopy.zonefile import (
     NormalizedRecord,
@@ -280,10 +280,7 @@ def check_migration_ns(ctx: CheckContext) -> list[Issue]:
             code="NS_MIGRATION_ARTIFACT",
             severity="error",
             category="ns",
-            message=(
-                f"{len(foreign)} apex NS record(s) point to a different provider than "
-                f"{ctx.provider_key!r}"
-            ),
+            message=(f"{len(foreign)} apex NS record(s) point to a different provider than {ctx.provider_key!r}"),
             details=(
                 "These NS records likely remain from a previous provider after a zone "
                 "copy. Resolvers ignore apex NS in some providers but they can also "
@@ -378,9 +375,7 @@ def _has_spf(records: Iterable[NormalizedRecord]) -> bool:
 
 def _has_dmarc(records: Iterable[NormalizedRecord], origin: str) -> bool:
     dmarc_owner = f"_dmarc.{origin.lstrip('.')}"
-    return any(
-        r.record_type == "TXT" and r.owner.lower() == dmarc_owner.lower() for r in records
-    )
+    return any(r.record_type == "TXT" and r.owner.lower() == dmarc_owner.lower() for r in records)
 
 
 def check_missing_spf(ctx: CheckContext) -> list[Issue]:
@@ -459,13 +454,9 @@ def check_cname_conflicts(ctx: CheckContext) -> list[Issue]:
     for owner, recs in by_owner.items():
         types = {r.record_type for r in recs}
         if "CNAME" in types and types - {"CNAME", "RRSIG", "NSEC"}:
-            cname_lines = tuple(
-                f"{r.owner} {r.ttl} IN CNAME {r.value}" for r in recs if r.record_type == "CNAME"
-            )
+            cname_lines = tuple(f"{r.owner} {r.ttl} IN CNAME {r.value}" for r in recs if r.record_type == "CNAME")
             other_lines = tuple(
-                f"{r.owner} {r.ttl} IN {r.record_type} {r.value}"
-                for r in recs
-                if r.record_type != "CNAME"
+                f"{r.owner} {r.ttl} IN {r.record_type} {r.value}" for r in recs if r.record_type != "CNAME"
             )
             issues.append(
                 Issue(
@@ -488,9 +479,7 @@ def check_cname_conflicts(ctx: CheckContext) -> list[Issue]:
                 )
             )
         if "CNAME" in types and owner == ctx.origin:
-            cname_records = tuple(
-                f"{r.owner} {r.ttl} IN CNAME {r.value}" for r in recs if r.record_type == "CNAME"
-            )
+            cname_records = tuple(f"{r.owner} {r.ttl} IN CNAME {r.value}" for r in recs if r.record_type == "CNAME")
             issues.append(
                 Issue(
                     code="CNAME_AT_APEX",
@@ -557,8 +546,7 @@ def check_dmarc_external_destination(ctx: CheckContext) -> list[Issue]:
                 affected=(receiver,),
                 fixable=True,
                 fix_description=(
-                    f"Publish the authorization TXT on {receiver!r} so reports for "
-                    f"{zone_domain!r} are accepted."
+                    f"Publish the authorization TXT on {receiver!r} so reports for {zone_domain!r} are accepted."
                 ),
                 suggested_record=auth_record,
             )
@@ -566,7 +554,10 @@ def check_dmarc_external_destination(ctx: CheckContext) -> list[Issue]:
     return issues
 
 
-DEFAULT_CHECKS = (
+# A check reads the analysis context and returns whatever issues it found.
+Check = Callable[["CheckContext"], list["Issue"]]
+
+DEFAULT_CHECKS: tuple[Check, ...] = (
     check_migration_ns,
     check_txt_semantic_duplicates,
     check_multiple_spf,
@@ -589,7 +580,7 @@ def analyze_records(
     domain: str | None,
     provider_key: str | None,
     origin: str | None = None,
-    checks: Iterable = DEFAULT_CHECKS,
+    checks: Iterable[Check] = DEFAULT_CHECKS,
     dmarc_email: str | None = None,
 ) -> list[Issue]:
     """Run every check against ``records`` and return the aggregated issues."""
@@ -632,14 +623,14 @@ def plan_fix_records(
             continue
         if issue.code == "NS_MIGRATION_ARTIFACT":
             # Each affected line has the form "owner ttl IN NS value (owned by ...)".
-            to_drop: set[tuple[str, int, str, str, str]] = set()
+            ns_to_drop: set[tuple[str, int, str, str, str]] = set()
             for entry in issue.affected:
                 parts = entry.split(" ")
                 if len(parts) < 5:
                     continue
-                owner, ttl, _in, rtype, value = parts[0], parts[1], parts[2], parts[3], parts[4]
-                to_drop.add((owner, int(ttl), _in, rtype, value))
-            keep = [r for r in keep if r.exact_key not in to_drop]
+                owner, ttl_text, _in, rtype, value = parts[0], parts[1], parts[2], parts[3], parts[4]
+                ns_to_drop.add((owner, int(ttl_text), _in, rtype, value))
+            keep = [r for r in keep if r.exact_key not in ns_to_drop]
             fixed.append(issue)
         elif issue.code == "TXT_SEMANTIC_DUPLICATE":
             # Group by owner+payload, keep the canonical (shortest unquoted) version.
@@ -648,8 +639,8 @@ def plan_fix_records(
                 if record.record_type != "TXT":
                     continue
                 owners_payloads.setdefault((record.owner, _txt_payload(record.value)), []).append(record)
-            survivors: set[tuple] = set()
-            drop: set[tuple] = set()
+            survivors: set[tuple[str, int, str, str, str]] = set()
+            drop: set[tuple[str, int, str, str, str]] = set()
             for group in owners_payloads.values():
                 if len(group) <= 1:
                     continue
@@ -677,7 +668,7 @@ def plan_fix_records(
         elif issue.code in {"CNAME_COLLISION", "CNAME_AT_APEX"}:
             # The CNAME is the RFC violator when it coexists with other records;
             # drop every CNAME in the affected set and keep the rest.
-            to_drop: set[tuple[str, int, str, str, str]] = set()
+            cname_to_drop: set[tuple[str, int, str, str, str]] = set()
             for entry in issue.affected:
                 parts = entry.split(" ", 4)
                 if len(parts) < 5:
@@ -686,12 +677,12 @@ def plan_fix_records(
                 if rtype != "CNAME":
                     continue
                 try:
-                    ttl = int(ttl_text)
+                    ttl_value = int(ttl_text)
                 except ValueError:
                     continue
-                to_drop.add((owner, ttl, klass, rtype, value))
-            if to_drop:
-                keep = [r for r in keep if r.exact_key not in to_drop]
+                cname_to_drop.add((owner, ttl_value, klass, rtype, value))
+            if cname_to_drop:
+                keep = [r for r in keep if r.exact_key not in cname_to_drop]
                 fixed.append(issue)
     return tuple(sorted(keep)), fixed
 
@@ -808,7 +799,7 @@ def _normalized_to_provider_dict(record: NormalizedRecord, origin: str) -> dict[
         # the on-wire representation. Records previously created without quotes
         # get re-created with quotes on the next ``--fix`` run.
         payload = _txt_payload(value)
-        out["content"] = '"' + payload.replace('\\', '\\\\').replace('"', '\\"') + '"'
+        out["content"] = '"' + payload.replace("\\", "\\\\").replace('"', '\\"') + '"'
     elif rtype == "MX":
         parts = value.split(" ", 1)
         if len(parts) == 2 and parts[0].isdigit():
@@ -824,7 +815,7 @@ def _normalized_to_provider_dict(record: NormalizedRecord, origin: str) -> dict[
 
 
 def _apply_granular_provider_fixes(
-    provider,
+    provider: Any,
     *,
     domain: str,
     origin: str,
@@ -839,7 +830,7 @@ def _apply_granular_provider_fixes(
     delete_all + import_zone pattern.
     """
     # Map current NormalizedRecord.exact_key → provider record id.
-    id_map: dict[tuple, str] = {}
+    id_map: dict[tuple[str, int, str, str, str], str] = {}
     for raw in provider_records:
         rid = raw.get("id")
         if not rid:
@@ -859,20 +850,20 @@ def _apply_granular_provider_fixes(
         record_id = id_map.get(key)
         if not record_id:
             continue
-        provider.delete_record(domain, record_id)  # type: ignore[attr-defined]
+        provider.delete_record(domain, record_id)
 
     for key in desired_keys - current_keys:
         record = desired_by_key[key]
         if record.record_type == "SOA":
             continue
-        provider.create_record(  # type: ignore[attr-defined]
+        provider.create_record(
             domain,
             _normalized_to_provider_dict(record, origin),
         )
 
 
 def _ensure_external_dmarc_auth(
-    provider,
+    provider: Any,
     *,
     source_domain: str,
     receiver_domain: str,
@@ -916,8 +907,8 @@ def _ensure_external_dmarc_auth(
     if not hasattr(provider, "create_record"):
         return False
     if stale_id is not None:
-        provider.delete_record(receiver_label, stale_id)  # type: ignore[attr-defined]
-    provider.create_record(  # type: ignore[attr-defined]
+        provider.delete_record(receiver_label, stale_id)
+    provider.create_record(
         receiver_label,
         {
             "type": "TXT",
@@ -930,7 +921,7 @@ def _ensure_external_dmarc_auth(
 
 
 def fix_provider_zone(
-    provider,
+    provider: Any,
     *,
     domain: str,
     provider_key: str,

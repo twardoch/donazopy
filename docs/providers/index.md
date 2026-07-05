@@ -95,10 +95,10 @@ Zone lookup is by name: `GET /zones?name=example.com&per_page=1`. A missing zone
 
 ### Token scopes
 
-| Operation                          | Required Cloudflare token permission                                                   |
-| ---------------------------------- | -------------------------------------------------------------------------------------- |
-| `records`, `export`, `nameservers` | Zone → DNS → **Read**                                                                  |
-| `import-zone`, `copy`              | Zone → DNS → **Edit**                                                                  |
+| Operation                          | Required Cloudflare token permission                                                    |
+| ---------------------------------- | --------------------------------------------------------------------------------------- |
+| `records`, `export`, `nameservers` | Zone → DNS → **Read**                                                                   |
+| `import-zone`, `copy`              | Zone → DNS → **Edit**                                                                   |
 | `create-zone`, `copy --create`     | Zone → **Edit** (and account access for `POST /zones`; or set `CLOUDFLARE_DNS_ACCOUNT`) |
 
 Create a scoped API token in the Cloudflare dashboard (My Profile → API Tokens), restricted to the specific zone(s) you operate on, and put it in `.env`:

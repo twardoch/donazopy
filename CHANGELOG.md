@@ -6,6 +6,14 @@ The format follows Keep a Changelog, and this project uses git-tag-derived seman
 
 ## [Unreleased]
 
+### Changed — modernization pass: strict types, CI, and cleaner scaffolding
+
+- **mypy `--strict` is now clean** across all 31 source files. The tangled `plan_fix_records` fixer no longer reused `to_drop`/`ttl` names across mutually exclusive branches (a real footgun, not just a type nit); the NS and CNAME branches now own distinct, fully-typed locals. `doctor.py` gained a `Check` callable alias and precise `tuple[str, int, str, str, str]` annotations on its record-key sets; `registry.py` gained an `OperationalProvider` protocol so the shared factory table stops widening to `object`; `cli.py`'s domain-fallback now narrows `str | None` correctly. `python-fire` (no `py.typed`) is silenced via a scoped mypy override.
+- **GitHub Actions CI** (`.github/workflows/ci.yml`): ruff lint + format check, mypy, and pytest on Ubuntu and macOS across Python 3.12 and 3.13. **Release workflow** (`release.yml`): tag-triggered build, PyPI trusted publishing, and a GitHub release.
+- Added a `dev` dependency group (ruff, mypy, pytest) so `uv sync` + `uv run` reproduce CI locally.
+- Every operational provider now carries a class docstring stating exactly what it can and cannot do — Cloudflare and IONOS read registrar delegation but refuse to write it (`assign_nameservers` raises a clear `ProviderAPIError`); GoDaddy and Joker set delegation for real.
+- `.gitignore` now excludes agent/orchestration operational state (`.omc/`, `agentdb.rvf`, `ruvector.db`).
+
 ### Fixed — `doctor` no longer crashes on CNAME-and-other-data zones (issue #205 follow-up)
 
 - `analyze_provider_records` / `fix_provider_zone` previously round-tripped provider records through `build_bind_zone` + `records_from_zone_text`, whose strict dnspython parser raises `dns.zonefile.CNAMEAndOtherData` when a CNAME coexists with another type at the same owner — exactly the misconfiguration the doctor needs to *report*. Both functions now use the new `records_from_provider_dicts` converter, which builds `NormalizedRecord` tuples directly from provider dicts (no parser round-trip) and surfaces the conflict as the existing `CNAME_COLLISION` finding.

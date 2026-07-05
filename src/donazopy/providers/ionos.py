@@ -34,6 +34,14 @@ _MANAGED_TYPES = {"SOA"}
 
 
 class IonosProvider:
+    """IONOS DNS adapter.
+
+    Full DNS hosting: read, write, export, and import records. The IONOS DNS
+    API reads delegation and domains but cannot write registrar delegation,
+    so ``assign_nameservers`` raises :class:`ProviderAPIError`. Its bulk
+    import is strict — every record must parse or the batch is rejected.
+    """
+
     api_base = "https://api.hosting.ionos.com/dns/v1"
     spec = PROVIDER
 
@@ -103,9 +111,7 @@ class IonosProvider:
                     )
             if rejected and created == 0:
                 # Nothing went through — preserve the original error context.
-                summary = "; ".join(
-                    f"{entry['name']} {entry['type']} ({entry['content']!r})" for entry in rejected[:5]
-                )
+                summary = "; ".join(f"{entry['name']} {entry['type']} ({entry['content']!r})" for entry in rejected[:5])
                 msg = (
                     f"IONOS rejected every record. First {min(5, len(rejected))} of "
                     f"{len(rejected)}: {summary}. Original batch error: {batch_error}"

@@ -50,6 +50,11 @@ Initial v1 shipped under `[Unreleased]` in CHANGELOG. Follow-up tasks:
 - [ ] Ensure all write operations support confirmation in CLI mode when they can mutate live DNS.
 - [ ] Ensure logs redact tokens, secrets, authorization headers, and provider account identifiers where sensitive.
 
+## Build & CI
+
+- [ ] Add a coverage step to CI (`pytest --cov`) and publish the report or a badge.
+- [ ] Consider a docs-build job (mirroring `camtasio`'s `docs.yml`) that fails the build on broken `src_docs` links.
+
 ## Type Checking / Test Quality
 
 - [ ] Fix `tests/test_cli.py` fakes (`FakeDNSProvider`, `FakeRegistrarProvider`) to fully satisfy the `DNSHostingProvider` / `RegistrarProvider` Protocols so pyright reports no errors.

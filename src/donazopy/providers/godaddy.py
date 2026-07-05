@@ -41,6 +41,12 @@ _MANAGED_TYPES = {"SOA"}
 
 
 class GoDaddyProvider:
+    """GoDaddy DNS and registrar adapter.
+
+    Full DNS hosting (read, write, export, import) plus registrar writes:
+    ``assign_nameservers`` sets delegation through the domains API.
+    """
+
     api_base = "https://api.godaddy.com/v1"
     spec = PROVIDER
 

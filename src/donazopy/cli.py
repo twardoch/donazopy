@@ -28,6 +28,7 @@ from donazopy.providers.registry import (
 )
 from donazopy.target import Target, TargetError, looks_like_path, parse_target, resolve_provider_key
 from donazopy.zonefile import (
+    NormalizedRecord,
     diff_zone_records,
     filter_zone_text,
     normalize_zone_file,
@@ -115,7 +116,9 @@ class Donazopy:
         status = credential_status(spec, dotenv_path=_dotenv(dotenv_path))
         return {"metadata": metadata, "credential_status": status.to_dict()}
 
-    def _records_from_side(self, text: str, origin: str | None, dotenv_path: str | None) -> tuple:
+    def _records_from_side(
+        self, text: str, origin: str | None, dotenv_path: str | None
+    ) -> tuple[NormalizedRecord, ...]:
         if looks_like_path(text):
             return records_from_zone_file(Path(text), origin)
         key, target = self._resolve_target(text)
@@ -355,7 +358,8 @@ class Donazopy:
             return {"copied": results, "failures": failures, "count": len(results)}
 
         source_domain = self._require_domain(source_target)
-        dest_domain = source_domain if dest_target.domain in (None, "*") else dest_target.domain
+        dest_domain_choice = dest_target.domain
+        dest_domain = source_domain if dest_domain_choice is None or dest_domain_choice == "*" else dest_domain_choice
         return self._copy_single(
             source_key=source_key,
             source_target=source_target,
@@ -536,9 +540,7 @@ class Donazopy:
                     failures.append({"domain": one_domain, "error": str(error)})
             combined_text = "\n".join(report.format_text() for report in reports)
             if failures:
-                failure_lines = "\n".join(
-                    f"  - {entry['domain']}: {entry['error']}" for entry in failures
-                )
+                failure_lines = "\n".join(f"  - {entry['domain']}: {entry['error']}" for entry in failures)
                 combined_text += f"\n\nFailures ({len(failures)}):\n{failure_lines}\n"
             if output is not None:
                 write_text_safely(Path(output), combined_text, overwrite=overwrite)
@@ -552,14 +554,10 @@ class Donazopy:
 
         domain = self._require_domain(parsed)
         if fix:
-            report = fix_provider_zone(
-                provider, domain=domain, provider_key=key, dmarc_email=dmarc_email
-            )
+            report = fix_provider_zone(provider, domain=domain, provider_key=key, dmarc_email=dmarc_email)
         else:
             records = provider.list_records(domain)
-            report = analyze_provider_records(
-                list(records), domain=domain, provider_key=key, dmarc_email=dmarc_email
-            )
+            report = analyze_provider_records(list(records), domain=domain, provider_key=key, dmarc_email=dmarc_email)
         if output is not None:
             write_text_safely(Path(output), report.format_text(), overwrite=overwrite)
         if json:

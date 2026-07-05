@@ -28,6 +28,14 @@ PROVIDER = ProviderSpec(
 
 
 class CloudflareProvider:
+    """Cloudflare DNS adapter.
+
+    Full DNS hosting: read, write, export, and import records. On the
+    registrar side it reads delegation and domains but cannot write it —
+    ``assign_nameservers`` raises :class:`ProviderAPIError` because the
+    Cloudflare API has no registrar-delegation endpoint.
+    """
+
     api_base = "https://api.cloudflare.com/client/v4"
     spec = PROVIDER
 

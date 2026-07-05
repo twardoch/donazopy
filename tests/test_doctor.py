@@ -213,12 +213,10 @@ def test_plan_fix_records_when_txt_duplicate_then_keeps_canonical() -> None:
 
     new_records, fixed = plan_fix_records(records, issues, origin="example.com.")
 
-    spf_records = [
-        r for r in new_records if r.record_type == "TXT" and "v=spf1" in r.value.lower()
-    ]
+    spf_records = [r for r in new_records if r.record_type == "TXT" and "v=spf1" in r.value.lower()]
     assert len(spf_records) == 1
     # Canonical form should not contain literal escaped quotes.
-    assert "\\\"" not in spf_records[0].value
+    assert '\\"' not in spf_records[0].value
     assert any(i.code == "TXT_SEMANTIC_DUPLICATE" for i in fixed)
 
 
@@ -269,8 +267,12 @@ def test_fix_zone_file_when_migration_zone_then_writes_clean_zone(tmp_path: Path
 
 def test_analyze_provider_records_when_migration_artifact_then_detects_ns() -> None:
     records: list[Mapping[str, object]] = [
-        {"type": "SOA", "name": "@", "ttl": 3600,
-         "content": "ada.ns.cloudflare.com. dns.cloudflare.com. 1 7200 3600 1209600 3600"},
+        {
+            "type": "SOA",
+            "name": "@",
+            "ttl": 3600,
+            "content": "ada.ns.cloudflare.com. dns.cloudflare.com. 1 7200 3600 1209600 3600",
+        },
         {"type": "NS", "name": "@", "ttl": 3600, "content": "ada.ns.cloudflare.com"},
         {"type": "NS", "name": "@", "ttl": 3600, "content": "ns1019.ui-dns.de"},
         {"type": "A", "name": "www", "ttl": 3600, "content": "192.0.2.20"},
@@ -294,13 +296,21 @@ def test_cli_doctor_when_wildcard_target_then_iterates_all_zones(
         def __init__(self) -> None:
             self.records_by_domain: dict[str, list[dict[str, Any]]] = {
                 "alpha.test": [
-                    {"type": "SOA", "name": "@", "ttl": 3600,
-                     "content": "ns.example. hostmaster.example. 1 7200 3600 1209600 3600"},
+                    {
+                        "type": "SOA",
+                        "name": "@",
+                        "ttl": 3600,
+                        "content": "ns.example. hostmaster.example. 1 7200 3600 1209600 3600",
+                    },
                     {"type": "NS", "name": "@", "ttl": 3600, "content": "ns.example"},
                 ],
                 "beta.test": [
-                    {"type": "SOA", "name": "@", "ttl": 3600,
-                     "content": "ns.example. hostmaster.example. 1 7200 3600 1209600 3600"},
+                    {
+                        "type": "SOA",
+                        "name": "@",
+                        "ttl": 3600,
+                        "content": "ns.example. hostmaster.example. 1 7200 3600 1209600 3600",
+                    },
                     {"type": "NS", "name": "@", "ttl": 3600, "content": "ns.example"},
                     {"type": "MX", "name": "@", "ttl": 3600, "content": "mail.beta.test", "prio": 10},
                 ],
@@ -358,8 +368,12 @@ def test_analyze_provider_records_when_cname_conflict_then_reports_not_crashes()
     """Regression: a CNAME coexisting with another type at the same owner must
     surface as a CNAME_COLLISION finding instead of crashing the parser."""
     records: list[Mapping[str, object]] = [
-        {"type": "SOA", "name": "@", "ttl": 3600,
-         "content": "ns.example.com. hostmaster.example.com. 1 7200 3600 1209600 3600"},
+        {
+            "type": "SOA",
+            "name": "@",
+            "ttl": 3600,
+            "content": "ns.example.com. hostmaster.example.com. 1 7200 3600 1209600 3600",
+        },
         {"type": "NS", "name": "@", "ttl": 3600, "content": "ns.example.com"},
         {"type": "A", "name": "www", "ttl": 3600, "content": "192.0.2.10"},
         {"type": "CNAME", "name": "www", "ttl": 3600, "content": "other.example.net"},
@@ -396,9 +410,7 @@ def test_plan_fix_records_when_dmarc_email_given_then_record_uses_address() -> N
         dmarc_email="ops@external.example",
     )
 
-    new_records, _ = plan_fix_records(
-        records, issues, origin="example.com.", dmarc_email="ops@external.example"
-    )
+    new_records, _ = plan_fix_records(records, issues, origin="example.com.", dmarc_email="ops@external.example")
 
     dmarc = next(r for r in new_records if r.owner.startswith("_dmarc.") and r.record_type == "TXT")
     assert "rua=mailto:ops@external.example" in dmarc.value
@@ -410,9 +422,7 @@ def test_cli_doctor_when_dmarc_email_supplied_then_threads_through_report(tmp_pa
     zone_path = tmp_path / "example.com.zone"
     zone_path.write_text(MIGRATION_ZONE, encoding="utf-8")
 
-    output = Donazopy().doctor(
-        str(zone_path), origin="example.com.", dmarc_email="ops@dmarc-service.com"
-    )
+    output = Donazopy().doctor(str(zone_path), origin="example.com.", dmarc_email="ops@dmarc-service.com")
 
     assert isinstance(output, str)
     assert "rua=mailto:ops@dmarc-service.com" in output
@@ -439,7 +449,7 @@ _dmarc IN TXT "v=DMARC1; p=none; rua=mailto:dmarc@fontlab.com"
     assert len(external) == 1
     assert external[0].affected == ("fontlab.com",)
     assert external[0].fixable
-    assert 'fontlab.app._report._dmarc.fontlab.com.' in (external[0].suggested_record or "")
+    assert "fontlab.app._report._dmarc.fontlab.com." in (external[0].suggested_record or "")
 
 
 def test_fix_provider_zone_when_external_receiver_on_same_provider_then_authorizes() -> None:
@@ -452,16 +462,28 @@ def test_fix_provider_zone_when_external_receiver_on_same_provider_then_authoriz
         def __init__(self) -> None:
             self.zones: dict[str, list[dict[str, Any]]] = {
                 "fontlab.app": [
-                    {"type": "SOA", "name": "@", "ttl": 3600,
-                     "content": "ns.cloudflare.com. dns.cloudflare.com. 1 7200 3600 1209600 3600"},
+                    {
+                        "type": "SOA",
+                        "name": "@",
+                        "ttl": 3600,
+                        "content": "ns.cloudflare.com. dns.cloudflare.com. 1 7200 3600 1209600 3600",
+                    },
                     {"type": "NS", "name": "@", "ttl": 3600, "content": "ns.cloudflare.com"},
                     {"type": "MX", "name": "@", "ttl": 3600, "content": "mail.fontlab.app", "prio": 10},
-                    {"type": "TXT", "name": "_dmarc", "ttl": 3600,
-                     "content": "v=DMARC1; p=none; rua=mailto:dmarc@fontlab.com"},
+                    {
+                        "type": "TXT",
+                        "name": "_dmarc",
+                        "ttl": 3600,
+                        "content": "v=DMARC1; p=none; rua=mailto:dmarc@fontlab.com",
+                    },
                 ],
                 "fontlab.com": [
-                    {"type": "SOA", "name": "@", "ttl": 3600,
-                     "content": "ns.cloudflare.com. dns.cloudflare.com. 1 7200 3600 1209600 3600"},
+                    {
+                        "type": "SOA",
+                        "name": "@",
+                        "ttl": 3600,
+                        "content": "ns.cloudflare.com. dns.cloudflare.com. 1 7200 3600 1209600 3600",
+                    },
                     {"type": "NS", "name": "@", "ttl": 3600, "content": "ns.cloudflare.com"},
                     {"type": "A", "name": "www", "ttl": 3600, "content": "192.0.2.10"},
                 ],
@@ -478,6 +500,7 @@ def test_fix_provider_zone_when_external_receiver_on_same_provider_then_authoriz
 
         def export_zone(self, domain: str) -> str:
             from donazopy.zonefile import records_from_provider_dicts, serialize_records
+
             origin = domain.rstrip(".") + "."
             return serialize_records(records_from_provider_dicts(self.zones[domain.rstrip(".")], origin=origin))
 
@@ -511,7 +534,10 @@ def test_fix_provider_zone_when_external_receiver_on_same_provider_then_authoriz
         rec.setdefault("id", f"com-{index}")
 
     report = fix_provider_zone(
-        provider, domain="fontlab.app", provider_key="cloudflare", backup_dir=Path("/tmp"),
+        provider,
+        domain="fontlab.app",
+        provider_key="cloudflare",
+        backup_dir=Path("/tmp"),
     )
 
     fixed_codes = {issue.code for issue in report.fixed}
@@ -631,12 +657,20 @@ def test_fix_provider_zone_when_provider_lacks_create_record_then_unfixed() -> N
         def __init__(self) -> None:
             self.zones: dict[str, list[dict[str, Any]]] = {
                 "fontlab.app": [
-                    {"type": "SOA", "name": "@", "ttl": 3600,
-                     "content": "ns.example. hostmaster.example. 1 7200 3600 1209600 3600"},
+                    {
+                        "type": "SOA",
+                        "name": "@",
+                        "ttl": 3600,
+                        "content": "ns.example. hostmaster.example. 1 7200 3600 1209600 3600",
+                    },
                     {"type": "NS", "name": "@", "ttl": 3600, "content": "ns.example"},
                     {"type": "MX", "name": "@", "ttl": 3600, "content": "mail.fontlab.app", "prio": 10},
-                    {"type": "TXT", "name": "_dmarc", "ttl": 3600,
-                     "content": "v=DMARC1; p=none; rua=mailto:dmarc@fontlab.com"},
+                    {
+                        "type": "TXT",
+                        "name": "_dmarc",
+                        "ttl": 3600,
+                        "content": "v=DMARC1; p=none; rua=mailto:dmarc@fontlab.com",
+                    },
                 ],
                 "fontlab.com": [],
             }
@@ -651,6 +685,7 @@ def test_fix_provider_zone_when_provider_lacks_create_record_then_unfixed() -> N
 
         def export_zone(self, domain: str) -> str:
             from donazopy.zonefile import records_from_provider_dicts, serialize_records
+
             origin = domain.rstrip(".") + "."
             return serialize_records(records_from_provider_dicts(self.zones[domain.rstrip(".")], origin=origin))
 
@@ -667,7 +702,10 @@ def test_fix_provider_zone_when_provider_lacks_create_record_then_unfixed() -> N
 
     provider = FakeBulkOnlyProvider()
     report = fix_provider_zone(
-        provider, domain="fontlab.app", provider_key="cloudflare", backup_dir=Path("/tmp"),
+        provider,
+        domain="fontlab.app",
+        provider_key="cloudflare",
+        backup_dir=Path("/tmp"),
     )
 
     fixed_codes = {issue.code for issue in report.fixed}
@@ -688,12 +726,20 @@ def test_fix_provider_zone_when_external_receiver_not_on_provider_then_unfixed()
         def __init__(self) -> None:
             self.records_map: dict[str, list[dict[str, Any]]] = {
                 "fontlab.app": [
-                    {"type": "SOA", "name": "@", "ttl": 3600,
-                     "content": "ns.cloudflare.com. dns.cloudflare.com. 1 7200 3600 1209600 3600"},
+                    {
+                        "type": "SOA",
+                        "name": "@",
+                        "ttl": 3600,
+                        "content": "ns.cloudflare.com. dns.cloudflare.com. 1 7200 3600 1209600 3600",
+                    },
                     {"type": "NS", "name": "@", "ttl": 3600, "content": "ns.cloudflare.com"},
                     {"type": "MX", "name": "@", "ttl": 3600, "content": "mail.fontlab.app", "prio": 10},
-                    {"type": "TXT", "name": "_dmarc", "ttl": 3600,
-                     "content": "v=DMARC1; p=none; rua=mailto:reports@elsewhere.example"},
+                    {
+                        "type": "TXT",
+                        "name": "_dmarc",
+                        "ttl": 3600,
+                        "content": "v=DMARC1; p=none; rua=mailto:reports@elsewhere.example",
+                    },
                 ],
             }
             self.deleted: list[str] = []
@@ -707,6 +753,7 @@ def test_fix_provider_zone_when_external_receiver_not_on_provider_then_unfixed()
 
         def export_zone(self, domain: str) -> str:
             from donazopy.zonefile import records_from_provider_dicts, serialize_records
+
             origin = domain.rstrip(".") + "."
             return serialize_records(records_from_provider_dicts(self.records_map[domain.rstrip(".")], origin=origin))
 
@@ -723,7 +770,10 @@ def test_fix_provider_zone_when_external_receiver_not_on_provider_then_unfixed()
 
     provider = FakeSingleZoneProvider()
     report = fix_provider_zone(
-        provider, domain="fontlab.app", provider_key="cloudflare", backup_dir=Path("/tmp"),
+        provider,
+        domain="fontlab.app",
+        provider_key="cloudflare",
+        backup_dir=Path("/tmp"),
     )
 
     fixed_codes = {issue.code for issue in report.fixed}

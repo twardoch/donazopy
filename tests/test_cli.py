@@ -185,9 +185,7 @@ def test_export_when_wildcard_target_without_output_then_raises(
         cli.export("cloudflare/*")
 
 
-def test_export_when_output_is_existing_directory_then_writes_domain_named_file(
-    cli: Donazopy, tmp_path: Path
-) -> None:
+def test_export_when_output_is_existing_directory_then_writes_domain_named_file(cli: Donazopy, tmp_path: Path) -> None:
     out_dir = tmp_path / "exports"
     out_dir.mkdir()
 
@@ -218,9 +216,7 @@ def test_copy_when_clean_then_acts_as_replace(cli: Donazopy, dns_provider: FakeD
     assert result["replaced"] == {"deleted": 2, "failed": 0}
 
 
-def test_copy_when_wildcard_source_then_iterates_zones(
-    cli: Donazopy, dns_provider: FakeDNSProvider
-) -> None:
+def test_copy_when_wildcard_source_then_iterates_zones(cli: Donazopy, dns_provider: FakeDNSProvider) -> None:
     dns_provider.list_zones = lambda: ["example.com", "alpha.test", "beta.test"]  # type: ignore[method-assign]
 
     result = cli.copy("cloudflare/*", "cloudflare/", clean=True, skip_ns=True)
@@ -238,9 +234,7 @@ def test_copy_when_wildcard_source_with_concrete_dest_then_raises(cli: Donazopy)
         cli.copy("cloudflare/*", "cloudflare/example.com")
 
 
-def test_copy_when_dest_provider_only_then_inherits_source_domain(
-    cli: Donazopy, dns_provider: FakeDNSProvider
-) -> None:
+def test_copy_when_dest_provider_only_then_inherits_source_domain(cli: Donazopy, dns_provider: FakeDNSProvider) -> None:
     """``provider/domain → provider2/`` must copy to the same domain name."""
     result = cli.copy("cloudflare/example.com", "cloudflare/")
 

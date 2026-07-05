@@ -51,6 +51,13 @@ _ZONE_LINE = re.compile(r'^(\S+)\s+(\S+)\s+(\S+)\s+("(?:[^"\\]|\\.)*"|\S+)\s*(.*
 
 
 class JokerProvider:
+    """Joker.com DNS and registrar adapter.
+
+    Full DNS hosting (read, write, export, import) plus registrar writes:
+    ``assign_nameservers`` updates delegation via the DMAPI ``domain-modify``
+    call. Talks to Joker's line-oriented DMAPI rather than a JSON REST API.
+    """
+
     spec = PROVIDER
 
     def __init__(

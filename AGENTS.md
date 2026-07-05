@@ -14,12 +14,18 @@ Expected implementation layout should keep provider integrations isolated:
 
 ## Build, Test, and Development Commands
 
-The package scaffold is not present yet. Once added, prefer `uv` and Hatch-based workflows:
+The package lives under `src/donazopy/`. Prefer `uv` and Hatch-based workflows:
 
-- `uv sync` installs project dependencies from the lockfile.
-- `uvx hatch test` runs the test suite.
-- `./build.sh` should clean and build distributions with `uvx hatch clean` and `uvx hatch build`.
-- `./publish.sh` should clean, update the git-tag-based version, build, then publish with `uv publish`.
+- `uv sync` installs runtime + `dev` dependencies (ruff, mypy, pytest) from the lockfile.
+- `uv run pytest tests/` runs the test suite (all provider calls are mocked — no network).
+- `uv run ruff check . && uv run ruff format --check .` lints and checks formatting.
+- `uv run mypy src/donazopy` type-checks under `--strict`.
+- `./docs.sh build` compiles `src_docs/md/` into `docs/` via MkDocs + MaterialX.
+- `./build.sh` cleans and builds distributions with `uvx hatch clean` and `uvx hatch build`.
+- `./publish.sh` cleans, derives the git-tag version, builds, then publishes with `uv publish`.
+
+CI (`.github/workflows/ci.yml`) runs lint, format, mypy, and tests on Ubuntu and macOS
+across Python 3.12 and 3.13; `release.yml` publishes to PyPI on a `v*` tag.
 
 Do not use bare `pip`; use `uv add <package>` for dependencies.
 

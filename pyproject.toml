@@ -37,6 +37,14 @@ Issues = "https://github.com/twardoch/donazopy/issues"
 donazopy = "donazopy.__main__:main"
 
 [dependency-groups]
+# Lint / type-check / test toolchain. Installed by `uv sync` and used by CI
+# via `uv run ruff|mypy|pytest`.
+dev = [
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "pytest>=8.0",
+]
+
 # Documentation toolchain (ProtoDocs / properdocs + the MaterialX theme).
 # Not part of the runtime install; fetched on demand by ./docs.sh via
 # `uv run --group docs`.
@@ -104,3 +112,8 @@ disallow_incomplete_defs = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+
+# python-fire ships no py.typed marker or stubs.
+[[tool.mypy.overrides]]
+module = "fire.*"
+ignore_missing_imports = true

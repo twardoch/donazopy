@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from typing import Protocol
 
 import httpx
 
 from donazopy.models import ProviderSpec
 from donazopy.providers import cloudflare, godaddy, ionos, joker
 from donazopy.providers.base import DNSHostingProvider, RegistrarProvider
+
+
+class OperationalProvider(DNSHostingProvider, RegistrarProvider, Protocol):
+    """Every operational provider speaks both the DNS-hosting and registrar Protocols."""
+
+
+# A factory builds one provider from its credentials (and an optional shared client).
+ProviderFactory = Callable[..., OperationalProvider]
 
 _OPERATIONAL_PROVIDERS: tuple[ProviderSpec, ...] = (
     cloudflare.PROVIDER,
@@ -20,7 +29,7 @@ _PROVIDERS_BY_KEY = {provider.key: provider for provider in _OPERATIONAL_PROVIDE
 
 # Every operational provider currently implements both the DNS hosting and registrar
 # Protocols, so a single factory table serves both creation entry points.
-_PROVIDER_FACTORIES = {
+_PROVIDER_FACTORIES: dict[str, ProviderFactory] = {
     cloudflare.PROVIDER.key: cloudflare.CloudflareProvider,
     godaddy.PROVIDER.key: godaddy.GoDaddyProvider,
     ionos.PROVIDER.key: ionos.IonosProvider,

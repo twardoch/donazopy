@@ -39,7 +39,7 @@ def http_request_with_retry(
             return response
         if attempt == _RETRY_MAX_ATTEMPTS:
             break
-        time.sleep(_RETRY_BASE_DELAY_SECONDS * (2 ** attempt))
+        time.sleep(_RETRY_BASE_DELAY_SECONDS * (2**attempt))
     assert last_response is not None
     return last_response
 

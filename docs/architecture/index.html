@@ -790,7 +790,7 @@ flow of a typical command, summarizes the typing conventions, and indexes the
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  └─ resolve_provider_key(target, operational_keys)  → &quot;cloudflare&quot;
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  └─ get_provider(&quot;cloudflare&quot;)                      → ProviderSpec
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  └─ require_provider_credentials(spec, dotenv_path=.env)
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        └─ dotenv_environment(...)                   → merged {.env, environ}, raises if CLOUDFLARE_API_TOKEN missing
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        └─ dotenv_environment(...)                   → merged {.env, environ}, raises if CLOUDFLARE_DNS_TOKEN missing
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  └─ create_dns_provider(&quot;cloudflare&quot;, creds)        → CloudflareProvider
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  └─ CloudflareProvider.export_zone(&quot;example.com&quot;)
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        └─ GET /zones?name=example.com               → zone id
